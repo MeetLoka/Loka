@@ -1,8 +1,36 @@
 import { useState } from 'react'
 import { createTrip } from '../services/api'
 import type { Trip } from '../types/domain'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { AddFlightForm, AddHotelForm, AddRideForm, AddAttractionForm } from '../components/AddItemForms'
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  TextField,
+  Typography,
+  Paper,
+  Stack,
+  Grid,
+  CircularProgress,
+  Card,
+  CardContent,
+  Divider,
+  Chip,
+  Alert
+} from '@mui/material'
+import {
+  ArrowBack,
+  ArrowForward,
+  Check,
+  Flight as FlightIcon,
+  Hotel as HotelIcon,
+  DirectionsCar,
+  AttractionsOutlined,
+  Info
+} from '@mui/icons-material'
 
 interface BasicInfo { name: string; destinations: string; startDate: string; endDate: string }
 
@@ -39,52 +67,116 @@ export default function NewTripWizard() {
   const canFinish = !!trip
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">New Trip Wizard</h1>
-      <div className="flex gap-2 flex-wrap">
-        {steps.map((label,i) => (
-          <div key={label} className={`px-3 py-1 rounded text-sm ${i===step?'bg-primary text-white':'bg-gray-100 text-gray-600'}`}>{label}</div>
-        ))}
-      </div>
+    <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
+      {/* Header */}
+      <Paper elevation={0} sx={{ p: 3, mb: 4, bgcolor: 'primary.main', color: 'white', borderRadius: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+          <Button
+            component={Link}
+            to="/"
+            startIcon={<ArrowBack />}
+            sx={{ color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+          >
+            Cancel
+          </Button>
+        </Stack>
+        <Typography variant="h4" fontWeight={700}>
+          Create New Trip
+        </Typography>
+        <Typography variant="body1" sx={{ mt: 1, opacity: 0.9 }}>
+          Plan your perfect journey in just a few steps
+        </Typography>
+      </Paper>
+
+      {/* Stepper */}
+      <Paper elevation={0} sx={{ p: 3, mb: 4, border: '1px solid', borderColor: 'divider' }}>
+        <Stepper activeStep={step} alternativeLabel>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </Paper>
 
       {/* Step 0: Basic Info */}
       {step === 0 && (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium">Trip Name</label>
-            <input className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2" value={basic.name} onChange={e=>setBasic({...basic,name:e.target.value})} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Destinations (comma separated)</label>
-            <input className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2" value={basic.destinations} onChange={e=>setBasic({...basic,destinations:e.target.value})} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium">Start Date</label>
-              <input type="date" className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2" value={basic.startDate} onChange={e=>setBasic({...basic,startDate:e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">End Date</label>
-              <input type="date" className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2" value={basic.endDate} onChange={e=>setBasic({...basic,endDate:e.target.value})} />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              disabled={!basic.name || !basic.startDate || !basic.endDate || creating}
-              onClick={createBasicTrip}
-              className="px-4 py-2 rounded bg-primary text-white disabled:opacity-50"
-            >
-              {creating ? 'Creating…' : (trip ? 'Update Trip' : 'Create Trip')}
-            </button>
-            <button
-              onClick={async ()=>{ if(!trip){ await createBasicTrip(); if(!trip) return } next() }}
-              disabled={!basic.name || !basic.startDate || !basic.endDate || creating}
-              className="px-4 py-2 rounded bg-secondary text-white disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'divider' }}>
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="h5" fontWeight={600} gutterBottom>
+                Basic Information
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Let's start with the essential details about your trip
+              </Typography>
+            </Box>
+
+            <TextField
+              label="Trip Name"
+              placeholder="e.g., Summer Vacation 2025"
+              value={basic.name}
+              onChange={e=>setBasic({...basic,name:e.target.value})}
+              fullWidth
+              required
+              helperText="Give your trip a memorable name"
+            />
+
+            <TextField
+              label="Destinations"
+              placeholder="e.g., Paris, Rome, Barcelona"
+              value={basic.destinations}
+              onChange={e=>setBasic({...basic,destinations:e.target.value})}
+              fullWidth
+              helperText="Separate multiple destinations with commas"
+            />
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Start Date"
+                  type="date"
+                  value={basic.startDate}
+                  onChange={e=>setBasic({...basic,startDate:e.target.value})}
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="End Date"
+                  type="date"
+                  value={basic.endDate}
+                  onChange={e=>setBasic({...basic,endDate:e.target.value})}
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  error={!!(basic.startDate && basic.endDate && basic.endDate < basic.startDate)}
+                  helperText={
+                    basic.startDate && basic.endDate && basic.endDate < basic.startDate 
+                      ? "End date must be after start date" 
+                      : undefined
+                  }
+                />
+              </Grid>
+            </Grid>
+
+            <Divider />
+
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Button
+                variant="contained"
+                size="large"
+                onClick={createBasicTrip}
+                disabled={!basic.name || !basic.startDate || !basic.endDate || creating || (basic.endDate < basic.startDate)}
+                startIcon={creating ? <CircularProgress size={20} /> : <Check />}
+              >
+                {creating ? 'Creating Trip...' : (trip ? 'Update & Continue' : 'Create Trip & Continue')}
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
       )}
 
       {/* Flights step */}
@@ -185,57 +277,158 @@ export default function NewTripWizard() {
 
       {/* Review step */}
       {step === 5 && (
-        <StepCard title="Review & Finish" subtitle={trip ? `Trip: ${trip.name}` : 'Create the trip first.'}>
+        <StepCard title="Review & Finish" subtitle={trip ? `Your trip is ready!` : 'Create the trip first.'}>
           {trip ? (
-            <div className="space-y-4">
-              <div className="rounded border p-3 bg-white">
-                <div className="font-medium">Summary</div>
-                <ul className="text-sm text-gray-700 list-disc pl-5 mt-2">
-                  <li>Dates: {trip.startDate} → {trip.endDate}</li>
-                  {trip.destinations?.length ? <li>Destinations: {trip.destinations.join(', ')}</li> : null}
-                  <li>Flights: {trip.flights.length}</li>
-                  <li>Hotels: {trip.hotels.length}</li>
-                  <li>Rides: {trip.rides.length}</li>
-                  <li>Attractions: {trip.attractions.length}</li>
-                </ul>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={prev} className="px-4 py-2 rounded bg-gray-200">Back</button>
-                <button disabled={!canFinish} onClick={()=>navigate(`/trips/${trip!.id}`)} className="px-4 py-2 rounded bg-primary text-white disabled:opacity-50">Finish</button>
-              </div>
-            </div>
+            <Stack spacing={3}>
+              <Card elevation={0} sx={{ bgcolor: 'success.lighter', border: '2px solid', borderColor: 'success.main' }}>
+                <CardContent>
+                  <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+                    <Check sx={{ color: 'success.main', fontSize: 32 }} />
+                    <Typography variant="h6" fontWeight={600}>
+                      Trip Created Successfully!
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    Your trip "{trip.name}" has been created. Review the summary below and click Finish to view your complete itinerary.
+                  </Typography>
+                </CardContent>
+              </Card>
+
+              <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Trip Summary
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary">Dates</Typography>
+                    <Typography variant="body1" fontWeight={500}>
+                      {new Date(trip.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} → {new Date(trip.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </Typography>
+                  </Grid>
+                  {trip.destinations?.length > 0 && (
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">Destinations</Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" gap={1} mt={0.5}>
+                        {trip.destinations.map((dest, i) => (
+                          <Chip key={i} label={dest} size="small" />
+                        ))}
+                      </Stack>
+                    </Grid>
+                  )}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 1 }} />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <FlightIcon color="primary" />
+                      <Box>
+                        <Typography variant="h5" fontWeight={600}>{trip.flights.length}</Typography>
+                        <Typography variant="caption" color="text.secondary">Flights</Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <HotelIcon color="secondary" />
+                      <Box>
+                        <Typography variant="h5" fontWeight={600}>{trip.hotels.length}</Typography>
+                        <Typography variant="caption" color="text.secondary">Hotels</Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <DirectionsCar color="info" />
+                      <Box>
+                        <Typography variant="h5" fontWeight={600}>{trip.rides.length}</Typography>
+                        <Typography variant="caption" color="text.secondary">Rides</Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <AttractionsOutlined color="success" />
+                      <Box>
+                        <Typography variant="h5" fontWeight={600}>{trip.attractions.length}</Typography>
+                        <Typography variant="caption" color="text.secondary">Attractions</Typography>
+                      </Box>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Paper>
+
+              <Stack direction="row" spacing={2} justifyContent="space-between">
+                <Button onClick={prev} variant="outlined" startIcon={<ArrowBack />}>
+                  Back
+                </Button>
+                <Button 
+                  disabled={!canFinish} 
+                  onClick={()=>navigate(`/trips/${trip!.id}`)} 
+                  variant="contained"
+                  size="large"
+                  endIcon={<Check />}
+                >
+                  Finish & View Trip
+                </Button>
+              </Stack>
+            </Stack>
           ) : (
-            <div className="flex gap-2">
-              <button onClick={prev} className="px-4 py-2 rounded bg-gray-200">Back</button>
-              <button disabled className="px-4 py-2 rounded bg-primary text-white opacity-50">Finish</button>
-            </div>
+            <Stack spacing={2}>
+              <Alert severity="warning" icon={<Info />}>
+                Please create a trip first by completing the Basic Info step.
+              </Alert>
+              <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Button onClick={prev} variant="outlined" startIcon={<ArrowBack />}>
+                  Back
+                </Button>
+                <Button disabled variant="contained">
+                  Finish
+                </Button>
+              </Stack>
+            </Stack>
           )}
         </StepCard>
       )}
-    </div>
+    </Box>
   )
 }
 
 function StepCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3">
-      <div>
-        <div className="text-lg font-semibold">{title}</div>
-        {subtitle && <div className="text-sm text-gray-500">{subtitle}</div>}
-      </div>
-      <div className="rounded border border-gray-200 bg-white p-4">
+    <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'divider' }}>
+      <Box mb={3}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          {title}
+        </Typography>
+        {subtitle && (
+          <Typography variant="body2" color="text.secondary">
+            {subtitle}
+          </Typography>
+        )}
+      </Box>
+      <Box>
         {children}
-      </div>
-    </div>
+      </Box>
+    </Paper>
   )
 }
 
 function WizardNav({ onBack, onNext, nextDisabled }: { onBack: ()=>void; onNext: ()=>void; nextDisabled?: boolean }) {
   return (
-    <div className="flex gap-2">
-      <button onClick={onBack} className="px-4 py-2 rounded bg-gray-200">Back</button>
-      <button onClick={onNext} disabled={!!nextDisabled} className="px-4 py-2 rounded bg-primary text-white disabled:opacity-50">Next</button>
-    </div>
+    <Stack direction="row" spacing={2} justifyContent="flex-end" mt={3}>
+      <Button onClick={onBack} variant="outlined" startIcon={<ArrowBack />}>
+        Back
+      </Button>
+      <Button 
+        onClick={onNext} 
+        disabled={!!nextDisabled} 
+        variant="contained"
+        endIcon={<ArrowForward />}
+      >
+        Next
+      </Button>
+    </Stack>
   )
 }
 

@@ -80,45 +80,121 @@ export default function TripDetails() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            {trip.name}
-          </Typography>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Chip icon={<CalendarMonth />} label={`${trip.startDate} → ${trip.endDate}`} />
-            {trip.destinations?.length > 0 && (
-              <Typography variant="body2" color="text.secondary">
-                {trip.destinations.join(', ')}
-              </Typography>
-            )}
-          </Stack>
-        </Box>
-        <Button
-          component={Link}
-          to="/"
-          startIcon={<ArrowBack />}
-          variant="outlined"
-        >
-          Back
-        </Button>
-      </Stack>
-
-      {/* Unified Add Item Button / Modal */}
-      <Box mb={3}>
-        <AddItemModalLauncher trip={trip} onUpdated={setTrip} />
-      </Box>
-
-      <Card sx={{ mb: 3, bgcolor: 'success.light', color: 'success.contrastText' }}>
-        <CardContent>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Total Cost</Typography>
-            <Typography variant="h4" fontWeight="bold">
-              ${totalCost.toFixed(2)}
+      {/* Header Section */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 4, 
+          mb: 4, 
+          bgcolor: 'primary.main', 
+          color: 'white',
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.95) 0%, rgba(21, 101, 192, 1) 100%)'
+        }}
+      >
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+          <Button
+            component={Link}
+            to="/"
+            startIcon={<ArrowBack />}
+            sx={{ 
+              color: 'white', 
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            Back to Trips
+          </Button>
+        </Stack>
+        
+        <Typography variant="h3" fontWeight={700} gutterBottom>
+          {trip.name}
+        </Typography>
+        
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" gap={1}>
+          <Chip 
+            icon={<CalendarMonth sx={{ color: 'white !important' }} />} 
+            label={`${new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → ${new Date(trip.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            sx={{ 
+              bgcolor: 'rgba(255,255,255,0.2)', 
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiChip-icon': { color: 'white' }
+            }}
+          />
+          {trip.destinations?.length > 0 && (
+            <Typography variant="h6" sx={{ opacity: 0.95, fontWeight: 500 }}>
+              📍 {trip.destinations.join(', ')}
             </Typography>
-          </Stack>
-        </CardContent>
-      </Card>
+          )}
+        </Stack>
+
+        {/* Trip Summary Stats */}
+        <Stack direction="row" spacing={4} mt={3} flexWrap="wrap">
+          {trip.flights?.length > 0 && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FlightIcon />
+              <Typography variant="h6" fontWeight={600}>
+                {trip.flights.length} {trip.flights.length === 1 ? 'Flight' : 'Flights'}
+              </Typography>
+            </Stack>
+          )}
+          {trip.hotels?.length > 0 && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <HotelIcon />
+              <Typography variant="h6" fontWeight={600}>
+                {trip.hotels.length} {trip.hotels.length === 1 ? 'Hotel' : 'Hotels'}
+              </Typography>
+            </Stack>
+          )}
+          {trip.rides?.length > 0 && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <DirectionsCar />
+              <Typography variant="h6" fontWeight={600}>
+                {trip.rides.length} {trip.rides.length === 1 ? 'Ride' : 'Rides'}
+              </Typography>
+            </Stack>
+          )}
+          {trip.attractions?.length > 0 && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <AttractionsOutlined />
+              <Typography variant="h6" fontWeight={600}>
+                {trip.attractions.length} {trip.attractions.length === 1 ? 'Attraction' : 'Attractions'}
+              </Typography>
+            </Stack>
+          )}
+        </Stack>
+      </Paper>
+
+      {/* Action Bar */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+        <AddItemModalLauncher trip={trip} onUpdated={setTrip} />
+        
+        {totalCost > 0 && (
+          <Paper 
+            elevation={0}
+            sx={{ 
+              px: 3, 
+              py: 1.5, 
+              bgcolor: 'success.lighter',
+              border: '2px solid',
+              borderColor: 'success.main',
+              borderRadius: 2
+            }}
+          >
+            <Stack direction="row" spacing={2} alignItems="center">
+              <AttachMoney sx={{ color: 'success.main' }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  Total Budget
+                </Typography>
+                <Typography variant="h5" fontWeight={700} color="success.main">
+                  ${totalCost.toFixed(2)}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        )}
+      </Stack>
 
       {/* Filter Bar */}
       <Card sx={{ mb: 3 }}>
