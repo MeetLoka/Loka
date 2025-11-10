@@ -51,8 +51,11 @@ import {
   Edit as EditIcon,
   Map as MapIcon,
   ExpandMore,
-  ExpandLess
+  ExpandLess,
+  Share as ShareIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material'
+import ShareTripDialog from '../components/ShareTripDialog'
 
 type FilterCategory = 'all' | 'flights' | 'hotels' | 'rides' | 'attractions'
 type ViewMode = 'list' | 'timeline' | 'map'
@@ -261,10 +264,25 @@ export default function TripDetails() {
   const [editItem, setEditItem] = useState<{ open: boolean; type: 'flight' | 'hotel' | 'ride' | 'attraction' | null; index: number; data: any }>({ open: false, type: null, index: -1, data: null })
   const [showGenerateRide, setShowGenerateRide] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Array<{ type: string; index: number; name: string; address: string; date?: string; time?: string }>>([])
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+
+  const isOwner = trip?.isOwner !== false // Default to true if not specified
+  const isShared = trip?.isShared === true
 
   useEffect(() => {
     if (id) getTrip(id).then(setTrip).catch(e => setError(e.message))
   }, [id])
+
+  const refreshTrip = async () => {
+    if (id) {
+      try {
+        const updated = await getTrip(id)
+        setTrip(updated)
+      } catch (e: any) {
+        setError(e.message)
+      }
+    }
+  }
 
   // Helper function to extract time from datetime string (handles both formats)
   const extractTime = (dateTimeStr: string): string => {
@@ -476,51 +494,81 @@ export default function TripDetails() {
             Back to Trips
           </Button>
           <Stack direction="row" spacing={1}>
-            <Button
-              startIcon={<DirectionsCar />}
-              onClick={() => setShowGenerateRide(true)}
-              sx={{ 
-                color: 'white', 
-                borderColor: 'rgba(255,255,255,0.5)',
-                '&:hover': { 
-                  bgcolor: 'rgba(255,255,255,0.2)',
-                  borderColor: 'rgba(255,255,255,0.8)'
-                }
-              }}
-              variant="outlined"
-            >
-              Generate Ride
-            </Button>
-            <Button
-              startIcon={<EditIcon />}
-              onClick={handleEditTripOpen}
-              sx={{ 
-                color: 'white', 
-                borderColor: 'rgba(255,255,255,0.5)',
-                '&:hover': { 
-                  bgcolor: 'rgba(255,255,255,0.2)',
-                  borderColor: 'rgba(255,255,255,0.8)'
-                }
-              }}
-              variant="outlined"
-            >
-              Edit Trip
-            </Button>
-            <Button
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteConfirm({ open: true, type: 'trip' })}
-              sx={{ 
-                color: 'white', 
-                borderColor: 'rgba(255,255,255,0.5)',
-                '&:hover': { 
-                  bgcolor: 'rgba(255,0,0,0.2)',
-                  borderColor: 'rgba(255,255,255,0.8)'
-                }
-              }}
-              variant="outlined"
-            >
-              Delete Trip
-            </Button>
+            {isShared && (
+              <Chip 
+                icon={<VisibilityIcon />}
+                label="View Only"
+                sx={{ 
+                  bgcolor: 'rgba(255,255,255,0.2)', 
+                  color: 'white',
+                  fontWeight: 600
+                }}
+              />
+            )}
+            {isOwner && (
+              <>
+                <Button
+                  startIcon={<ShareIcon />}
+                  onClick={() => setShareDialogOpen(true)}
+                  sx={{ 
+                    color: 'white', 
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      borderColor: 'rgba(255,255,255,0.8)'
+                    }
+                  }}
+                  variant="outlined"
+                >
+                  Share
+                </Button>
+                <Button
+                  startIcon={<DirectionsCar />}
+                  onClick={() => setShowGenerateRide(true)}
+                  sx={{ 
+                    color: 'white', 
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      borderColor: 'rgba(255,255,255,0.8)'
+                    }
+                  }}
+                  variant="outlined"
+                >
+                  Generate Ride
+                </Button>
+                <Button
+                  startIcon={<EditIcon />}
+                  onClick={handleEditTripOpen}
+                  sx={{ 
+                    color: 'white', 
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      borderColor: 'rgba(255,255,255,0.8)'
+                    }
+                  }}
+                  variant="outlined"
+                >
+                  Edit Trip
+                </Button>
+                <Button
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteConfirm({ open: true, type: 'trip' })}
+                  sx={{ 
+                    color: 'white', 
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,0,0,0.2)',
+                      borderColor: 'rgba(255,255,255,0.8)'
+                    }
+                  }}
+                  variant="outlined"
+                >
+                  Delete Trip
+                </Button>
+              </>
+            )}
           </Stack>
         </Stack>
         
@@ -913,24 +961,26 @@ export default function TripDetails() {
                                   )}
                                 </Typography>
                               )}
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                <Button
-                                  size="small"
-                                  color="primary"
-                                  startIcon={<EditIcon />}
-                                  onClick={() => handleEditItemOpen('flight', i, f)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="small"
-                                  color="error"
-                                  startIcon={<DeleteIcon />}
-                                  onClick={() => setDeleteConfirm({ open: true, type: 'flight', index: i })}
-                                >
-                                  Delete
-                                </Button>
-                              </Stack>
+                              {isOwner && (
+                                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                  <Button
+                                    size="small"
+                                    color="primary"
+                                    startIcon={<EditIcon />}
+                                    onClick={() => handleEditItemOpen('flight', i, f)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    color="error"
+                                    startIcon={<DeleteIcon />}
+                                    onClick={() => setDeleteConfirm({ open: true, type: 'flight', index: i })}
+                                  >
+                                    Delete
+                                  </Button>
+                                </Stack>
+                              )}
                             </Box>
                           </Collapse>
                         </Paper>
@@ -1017,24 +1067,26 @@ export default function TripDetails() {
                                   Travel time from airport: {h.travelTimeFromAirport}
                                 </Typography>
                               )}
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                <Button
-                                  size="small"
-                                  color="primary"
-                                  startIcon={<EditIcon />}
-                                  onClick={() => handleEditItemOpen('hotel', i, h)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="small"
-                                  color="error"
-                                  startIcon={<DeleteIcon />}
-                                  onClick={() => setDeleteConfirm({ open: true, type: 'hotel', index: i })}
-                                >
-                                  Delete
-                                </Button>
-                              </Stack>
+                              {isOwner && (
+                                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                  <Button
+                                    size="small"
+                                    color="primary"
+                                    startIcon={<EditIcon />}
+                                    onClick={() => handleEditItemOpen('hotel', i, h)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    color="error"
+                                    startIcon={<DeleteIcon />}
+                                    onClick={() => setDeleteConfirm({ open: true, type: 'hotel', index: i })}
+                                  >
+                                    Delete
+                                  </Button>
+                                </Stack>
+                              )}
                             </Box>
                           </Collapse>
                         </Paper>
@@ -1139,24 +1191,26 @@ export default function TripDetails() {
                                 </Typography>
                               )}
                               <RideMapEmbed ride={r} />
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                <Button
-                                  size="small"
-                                  color="primary"
-                                  startIcon={<EditIcon />}
-                                  onClick={() => handleEditItemOpen('ride', i, r)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="small"
-                                  color="error"
-                                  startIcon={<DeleteIcon />}
-                                  onClick={() => setDeleteConfirm({ open: true, type: 'ride', index: i })}
-                                >
-                                  Delete
-                                </Button>
-                              </Stack>
+                              {isOwner && (
+                                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                  <Button
+                                    size="small"
+                                    color="primary"
+                                    startIcon={<EditIcon />}
+                                    onClick={() => handleEditItemOpen('ride', i, r)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    color="error"
+                                    startIcon={<DeleteIcon />}
+                                    onClick={() => setDeleteConfirm({ open: true, type: 'ride', index: i })}
+                                  >
+                                    Delete
+                                  </Button>
+                                </Stack>
+                              )}
                             </Box>
                           </Collapse>
                         </Paper>
@@ -1245,24 +1299,26 @@ export default function TripDetails() {
                                   )}
                                 </Typography>
                               )}
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                <Button
-                                  size="small"
-                                  color="primary"
-                                  startIcon={<EditIcon />}
-                                  onClick={() => handleEditItemOpen('attraction', i, a)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="small"
-                                  color="error"
-                                  startIcon={<DeleteIcon />}
-                                  onClick={() => setDeleteConfirm({ open: true, type: 'attraction', index: i })}
-                                >
-                                  Delete
-                                </Button>
-                              </Stack>
+                              {isOwner && (
+                                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                  <Button
+                                    size="small"
+                                    color="primary"
+                                    startIcon={<EditIcon />}
+                                    onClick={() => handleEditItemOpen('attraction', i, a)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    color="error"
+                                    startIcon={<DeleteIcon />}
+                                    onClick={() => setDeleteConfirm({ open: true, type: 'attraction', index: i })}
+                                  >
+                                    Delete
+                                  </Button>
+                                </Stack>
+                              )}
                             </Box>
                           </Collapse>
                         </Paper>
@@ -2216,6 +2272,18 @@ export default function TripDetails() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Share Trip Dialog */}
+      {isOwner && (
+        <ShareTripDialog
+          open={shareDialogOpen}
+          onClose={() => setShareDialogOpen(false)}
+          tripId={trip.id}
+          tripName={trip.name}
+          sharedWith={trip.sharedWith || []}
+          onUpdate={refreshTrip}
+        />
+      )}
     </Box>
   )
 }
@@ -2225,6 +2293,13 @@ function AddItemModalLauncher({ trip, onUpdated }: { trip: Trip; onUpdated: (t: 
   const [tab, setTab] = useState(0)
 
   const handleClose = () => setOpen(false)
+  
+  const isOwner = trip?.isOwner !== false
+
+  // Don't show Add button for shared trips
+  if (!isOwner) {
+    return null
+  }
 
   return (
     <>

@@ -68,6 +68,13 @@ export interface AttractionVisit {
   costType?: 'per-ticket' | 'total'
 }
 
+export interface SharedUser {
+  userId: string
+  email: string
+  name: string
+  sharedAt: string
+}
+
 export interface Trip {
   id: string
   name: string
@@ -80,6 +87,11 @@ export interface Trip {
   attractions: AttractionVisit[]
   createdAt?: string
   updatedAt?: string
+  userId?: string
+  userEmail?: string
+  sharedWith?: SharedUser[]
+  isOwner?: boolean
+  isShared?: boolean
 }
 
 export interface DayBucket {

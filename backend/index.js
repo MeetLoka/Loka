@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import { connectToDatabase, closeDatabase } from './config/database.js'
+import authRoutes from './routes/auth.js'
 import hotelRoutes from './routes/hotels.js'
 import rideRoutes from './routes/rides.js'
 import placesRoutes from './routes/places.js'
@@ -18,6 +19,7 @@ app.use(cors())
 app.use(express.json())
 
 // Routes
+app.use('/api/auth', authRoutes)
 app.use('/api/hotels', hotelRoutes)
 app.use('/api/rides', rideRoutes)
 app.use('/api/places', placesRoutes)

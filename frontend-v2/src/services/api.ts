@@ -5,6 +5,15 @@ import type { Trip, FlightSegment, HotelBooking, RideLeg, AttractionVisit } from
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 export const api = axios.create({ baseURL })
 
+// Add request interceptor to include auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 export const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
 
 export async function listTrips(): Promise<Trip[]> {
@@ -120,5 +129,16 @@ export async function placesAutocomplete(input: string, types: string = 'establi
 }
 export async function placeDetails(place_id: string) {
   const res = await api.get('/places/details', { params: { place_id } })
+  return res.data
+}
+
+// Trip Sharing
+export async function shareTrip(tripId: string, emails: string[]): Promise<{ message: string; sharedWith: any[] }> {
+  const res = await api.post(`/trips/${tripId}/share`, { emails })
+  return res.data
+}
+
+export async function revokeAccess(tripId: string, userId: string): Promise<{ message: string; sharedWith: any[] }> {
+  const res = await api.delete(`/trips/${tripId}/share/${userId}`)
   return res.data
 }
