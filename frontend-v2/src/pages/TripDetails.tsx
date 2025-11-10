@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { getTrip, GOOGLE_MAPS_API_KEY } from '../services/api'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { getTrip, GOOGLE_MAPS_API_KEY, deleteTrip, deleteFlightFromTrip, deleteHotelFromTrip, deleteRideFromTrip, deleteAttractionFromTrip, updateTrip, addFlightToTrip, addHotelToTrip, addRideToTrip, addAttractionToTrip } from '../services/api'
 import type { Trip } from '../types/domain'
 import { groupTripByDay } from '../types/domain'
 import { AddFlightForm, AddHotelForm, AddRideForm, AddAttractionForm } from '../components/AddItemForms'
@@ -24,7 +24,15 @@ import {
   Paper,
   Divider,
   Collapse,
-  CardActionArea
+  CardActionArea,
+  TextField,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material'
 import {
   ArrowBack,
@@ -38,6 +46,8 @@ import {
   AccessTime,
   ViewList,
   Timeline as TimelineIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
   Map as MapIcon,
   ExpandMore,
   ExpandLess
@@ -239,15 +249,107 @@ function TripMapView({ trip }: { trip: Trip }) {
 
 export default function TripDetails() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterCategory>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [expandedItem, setExpandedItem] = useState<{ type: string; index: number } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; type: 'trip' | 'flight' | 'hotel' | 'ride' | 'attraction' | null; index?: number }>({ open: false, type: null })
+  const [editTrip, setEditTrip] = useState<{ open: boolean; name: string; destinations: string; startDate: string; endDate: string }>({ open: false, name: '', destinations: '', startDate: '', endDate: '' })
+  const [editItem, setEditItem] = useState<{ open: boolean; type: 'flight' | 'hotel' | 'ride' | 'attraction' | null; index: number; data: any }>({ open: false, type: null, index: -1, data: null })
 
   useEffect(() => {
     if (id) getTrip(id).then(setTrip).catch(e => setError(e.message))
   }, [id])
+
+  const handleDeleteTrip = async () => {
+    if (!id) return
+    try {
+      await deleteTrip(id)
+      navigate('/')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setDeleteConfirm({ open: false, type: null })
+    }
+  }
+
+  const handleDeleteItem = async (type: 'flight' | 'hotel' | 'ride' | 'attraction', index: number) => {
+    if (!id) return
+    try {
+      let updated: Trip
+      if (type === 'flight') updated = await deleteFlightFromTrip(id, index)
+      else if (type === 'hotel') updated = await deleteHotelFromTrip(id, index)
+      else if (type === 'ride') updated = await deleteRideFromTrip(id, index)
+      else updated = await deleteAttractionFromTrip(id, index)
+      
+      setTrip(updated)
+      setExpandedItem(null)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setDeleteConfirm({ open: false, type: null })
+    }
+  }
+
+  const handleEditTripOpen = () => {
+    if (!trip) return
+    setEditTrip({
+      open: true,
+      name: trip.name,
+      destinations: trip.destinations.join(', '),
+      startDate: trip.startDate,
+      endDate: trip.endDate
+    })
+  }
+
+  const handleEditTripSave = async () => {
+    if (!id || !trip) return
+    try {
+      const updated = await updateTrip(id, {
+        name: editTrip.name,
+        destinations: editTrip.destinations.split(',').map(d => d.trim()).filter(Boolean),
+        startDate: editTrip.startDate,
+        endDate: editTrip.endDate
+      })
+      setTrip(updated)
+      setEditTrip({ open: false, name: '', destinations: '', startDate: '', endDate: '' })
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
+  const handleEditItemOpen = (type: 'flight' | 'hotel' | 'ride' | 'attraction', index: number, data: any) => {
+    setEditItem({ open: true, type, index, data: { ...data } })
+  }
+
+  const handleEditItemSave = async () => {
+    if (!id || !editItem.type || editItem.index === -1) return
+    try {
+      // Delete old item and add updated one
+      let updated: Trip
+      if (editItem.type === 'flight') {
+        updated = await deleteFlightFromTrip(id, editItem.index)
+        updated = await addFlightToTrip(id, editItem.data)
+      } else if (editItem.type === 'hotel') {
+        updated = await deleteHotelFromTrip(id, editItem.index)
+        updated = await addHotelToTrip(id, editItem.data)
+      } else if (editItem.type === 'ride') {
+        updated = await deleteRideFromTrip(id, editItem.index)
+        updated = await addRideToTrip(id, editItem.data)
+      } else {
+        updated = await deleteAttractionFromTrip(id, editItem.index)
+        updated = await addAttractionToTrip(id, editItem.data)
+      }
+      
+      setTrip(updated)
+      setEditItem({ open: false, type: null, index: -1, data: null })
+      setExpandedItem(null)
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
 
   if (error) return <Alert severity="error">{error}</Alert>
   if (!trip) return <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
@@ -301,6 +403,38 @@ export default function TripDetails() {
           >
             Back to Trips
           </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              startIcon={<EditIcon />}
+              onClick={handleEditTripOpen}
+              sx={{ 
+                color: 'white', 
+                borderColor: 'rgba(255,255,255,0.5)',
+                '&:hover': { 
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  borderColor: 'rgba(255,255,255,0.8)'
+                }
+              }}
+              variant="outlined"
+            >
+              Edit Trip
+            </Button>
+            <Button
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteConfirm({ open: true, type: 'trip' })}
+              sx={{ 
+                color: 'white', 
+                borderColor: 'rgba(255,255,255,0.5)',
+                '&:hover': { 
+                  bgcolor: 'rgba(255,0,0,0.2)',
+                  borderColor: 'rgba(255,255,255,0.8)'
+                }
+              }}
+              variant="outlined"
+            >
+              Delete Trip
+            </Button>
+          </Stack>
         </Stack>
         
         <Typography variant="h3" fontWeight={700} gutterBottom>
@@ -667,6 +801,24 @@ export default function TripDetails() {
                                   Checked Bag: {f.checkedBag ? 'Included' : 'Not included'}
                                 </Typography>
                               )}
+                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  color="primary"
+                                  startIcon={<EditIcon />}
+                                  onClick={() => handleEditItemOpen('flight', i, f)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => setDeleteConfirm({ open: true, type: 'flight', index: i })}
+                                >
+                                  Delete
+                                </Button>
+                              </Stack>
                             </Box>
                           </Collapse>
                         </Paper>
@@ -738,6 +890,24 @@ export default function TripDetails() {
                                   Travel time from airport: {h.travelTimeFromAirport}
                                 </Typography>
                               )}
+                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  color="primary"
+                                  startIcon={<EditIcon />}
+                                  onClick={() => handleEditItemOpen('hotel', i, h)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => setDeleteConfirm({ open: true, type: 'hotel', index: i })}
+                                >
+                                  Delete
+                                </Button>
+                              </Stack>
                             </Box>
                           </Collapse>
                         </Paper>
@@ -842,6 +1012,24 @@ export default function TripDetails() {
                                 </Typography>
                               )}
                               <RideMapEmbed ride={r} />
+                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  color="primary"
+                                  startIcon={<EditIcon />}
+                                  onClick={() => handleEditItemOpen('ride', i, r)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => setDeleteConfirm({ open: true, type: 'ride', index: i })}
+                                >
+                                  Delete
+                                </Button>
+                              </Stack>
                             </Box>
                           </Collapse>
                         </Paper>
@@ -905,6 +1093,24 @@ export default function TripDetails() {
                                   Scheduled: {a.scheduledDate} {a.scheduledTime && `at ${a.scheduledTime}`}
                                 </Typography>
                               )}
+                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  color="primary"
+                                  startIcon={<EditIcon />}
+                                  onClick={() => handleEditItemOpen('attraction', i, a)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => setDeleteConfirm({ open: true, type: 'attraction', index: i })}
+                                >
+                                  Delete
+                                </Button>
+                              </Stack>
                             </Box>
                           </Collapse>
                         </Paper>
@@ -1269,6 +1475,480 @@ export default function TripDetails() {
       {/* MAP VIEW */}
       {viewMode === 'map' && (
         <TripMapView trip={trip} />
+      )}
+
+      {/* Edit Trip Dialog */}
+      <Dialog open={editTrip.open} onClose={() => setEditTrip({ ...editTrip, open: false })} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Trip</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Trip Name"
+              value={editTrip.name}
+              onChange={(e) => setEditTrip({ ...editTrip, name: e.target.value })}
+            />
+            <TextField
+              fullWidth
+              label="Destinations"
+              value={editTrip.destinations}
+              onChange={(e) => setEditTrip({ ...editTrip, destinations: e.target.value })}
+              helperText="Comma-separated list of destinations"
+            />
+            <TextField
+              fullWidth
+              type="date"
+              label="Start Date"
+              value={editTrip.startDate}
+              onChange={(e) => setEditTrip({ ...editTrip, startDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              type="date"
+              label="End Date"
+              value={editTrip.endDate}
+              onChange={(e) => setEditTrip({ ...editTrip, endDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditTrip({ ...editTrip, open: false })}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleEditTripSave}>
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false, type: null })}>
+        <DialogTitle>
+          Confirm Delete
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            {deleteConfirm.type === 'trip' 
+              ? 'Are you sure you want to delete this entire trip? This action cannot be undone.'
+              : `Are you sure you want to delete this ${deleteConfirm.type}?`}
+          </Typography>
+          <Stack direction="row" spacing={2} mt={3} justifyContent="flex-end">
+            <Button onClick={() => setDeleteConfirm({ open: false, type: null })}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => {
+                if (deleteConfirm.type === 'trip') {
+                  handleDeleteTrip()
+                } else if (deleteConfirm.type && deleteConfirm.index !== undefined) {
+                  handleDeleteItem(deleteConfirm.type as any, deleteConfirm.index)
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Flight Dialog */}
+      {editItem.open && editItem.type === 'flight' && (
+        <Dialog open onClose={() => setEditItem({ ...editItem, open: false })} maxWidth="md" fullWidth>
+          <DialogTitle>Edit Flight</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label="Airline"
+                value={editItem.data.airline || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, airline: e.target.value } })}
+              />
+              <TextField
+                fullWidth
+                label="Flight Number"
+                value={editItem.data.flightNumber || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, flightNumber: e.target.value } })}
+              />
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  label="Departure Airport Code"
+                  value={editItem.data.departureAirportCode || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, departureAirportCode: e.target.value } })}
+                />
+                <TextField
+                  fullWidth
+                  label="Arrival Airport Code"
+                  value={editItem.data.arrivalAirportCode || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, arrivalAirportCode: e.target.value } })}
+                />
+              </Box>
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  type="datetime-local"
+                  label="Departure Date & Time"
+                  value={editItem.data.departureDateTime?.slice(0, 16) || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, departureDateTime: e.target.value } })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  fullWidth
+                  type="datetime-local"
+                  label="Arrival Date & Time"
+                  value={editItem.data.arrivalDateTime?.slice(0, 16) || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, arrivalDateTime: e.target.value } })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Cost"
+                  value={editItem.data.cost || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, cost: Number(e.target.value) } })}
+                />
+                <TextField
+                  fullWidth
+                  label="Booking Number"
+                  value={editItem.data.bookingNumber || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, bookingNumber: e.target.value } })}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                label="Booking Agency"
+                value={editItem.data.bookingAgency || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, bookingAgency: e.target.value } })}
+              />
+              <Box display="flex" gap={2}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editItem.data.carryOn || false}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, carryOn: e.target.checked } })}
+                    />
+                  }
+                  label="Carry-on Included"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editItem.data.checkedBag || false}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, checkedBag: e.target.checked } })}
+                    />
+                  }
+                  label="Checked Bag Included"
+                />
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditItem({ ...editItem, open: false })}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleEditItemSave}>
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Edit Hotel Dialog */}
+      {editItem.open && editItem.type === 'hotel' && (
+        <Dialog open onClose={() => setEditItem({ ...editItem, open: false })} maxWidth="md" fullWidth>
+          <DialogTitle>Edit Hotel</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label="Hotel Name"
+                value={editItem.data.name || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, name: e.target.value } })}
+              />
+              <TextField
+                fullWidth
+                label="Address"
+                value={editItem.data.address || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, address: e.target.value } })}
+              />
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Check-in Date"
+                  value={editItem.data.checkIn?.slice(0, 10) || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, checkIn: e.target.value } })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Check-out Date"
+                  value={editItem.data.checkOut?.slice(0, 10) || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, checkOut: e.target.value } })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Nights"
+                  value={editItem.data.nights || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, nights: Number(e.target.value) } })}
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Cost"
+                  value={editItem.data.cost || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, cost: Number(e.target.value) } })}
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Rating"
+                  value={editItem.data.rating || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, rating: Number(e.target.value) } })}
+                  inputProps={{ min: 0, max: 5, step: 0.1 }}
+                />
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditItem({ ...editItem, open: false })}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleEditItemSave}>
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Edit Ride Dialog */}
+      {editItem.open && editItem.type === 'ride' && (
+        <Dialog open onClose={() => setEditItem({ ...editItem, open: false })} maxWidth="md" fullWidth>
+          <DialogTitle>Edit Ride</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel>Ride Type</InputLabel>
+                <Select
+                  value={editItem.data.type || ''}
+                  label="Ride Type"
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, type: e.target.value } })}
+                >
+                  <MenuItem value="taxi">Taxi/Ride</MenuItem>
+                  <MenuItem value="rental">Car Rental</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Pickup Location"
+                value={editItem.data.pickup || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, pickup: e.target.value } })}
+              />
+              <TextField
+                fullWidth
+                label="Dropoff Location"
+                value={editItem.data.dropoff || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, dropoff: e.target.value } })}
+              />
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  label="Distance"
+                  value={editItem.data.distance || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, distance: e.target.value } })}
+                />
+                <TextField
+                  fullWidth
+                  label="Duration"
+                  value={editItem.data.duration || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, duration: e.target.value } })}
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Cost"
+                  value={editItem.data.cost || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, cost: Number(e.target.value) } })}
+                />
+              </Box>
+              
+              {editItem.data.type === 'rental' && (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Rental Company"
+                    value={editItem.data.rentalCompany || ''}
+                    onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, rentalCompany: e.target.value } })}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Voucher Number"
+                    value={editItem.data.voucherNumber || ''}
+                    onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, voucherNumber: e.target.value } })}
+                  />
+                  <Box display="flex" gap={2}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      label="Pickup Date"
+                      value={editItem.data.pickupDate || ''}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, pickupDate: e.target.value } })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      fullWidth
+                      type="time"
+                      label="Pickup Time"
+                      value={editItem.data.pickupTime || ''}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, pickupTime: e.target.value } })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Box>
+                  <Box display="flex" gap={2}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      label="Return Date"
+                      value={editItem.data.returnDate || ''}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, returnDate: e.target.value } })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      fullWidth
+                      type="time"
+                      label="Return Time"
+                      value={editItem.data.returnTime || ''}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, returnTime: e.target.value } })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Box>
+                </>
+              )}
+              
+              {editItem.data.type === 'taxi' && (
+                <>
+                  <Box display="flex" gap={2}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      label="Date"
+                      value={editItem.data.date || ''}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, date: e.target.value } })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      fullWidth
+                      type="time"
+                      label="Time"
+                      value={editItem.data.time || ''}
+                      onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, time: e.target.value } })}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Box>
+                  <TextField
+                    fullWidth
+                    label="Notes"
+                    multiline
+                    rows={2}
+                    value={editItem.data.notes || ''}
+                    onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, notes: e.target.value } })}
+                  />
+                </>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditItem({ ...editItem, open: false })}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleEditItemSave}>
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Edit Attraction Dialog */}
+      {editItem.open && editItem.type === 'attraction' && (
+        <Dialog open onClose={() => setEditItem({ ...editItem, open: false })} maxWidth="md" fullWidth>
+          <DialogTitle>Edit Attraction</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label="Attraction Name"
+                value={editItem.data.name || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, name: e.target.value } })}
+              />
+              <TextField
+                fullWidth
+                label="Address"
+                value={editItem.data.address || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, address: e.target.value } })}
+              />
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Scheduled Date"
+                  value={editItem.data.scheduledDate?.slice(0, 10) || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, scheduledDate: e.target.value } })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  fullWidth
+                  type="time"
+                  label="Scheduled Time"
+                  value={editItem.data.scheduledTime || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, scheduledTime: e.target.value } })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
+              <Box display="flex" gap={2}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Cost"
+                  value={editItem.data.cost || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, cost: Number(e.target.value) } })}
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Rating"
+                  value={editItem.data.rating || ''}
+                  onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, rating: Number(e.target.value) } })}
+                  inputProps={{ min: 0, max: 5, step: 0.1 }}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                label="Website"
+                value={editItem.data.website || ''}
+                onChange={(e) => setEditItem({ ...editItem, data: { ...editItem.data, website: e.target.value } })}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditItem({ ...editItem, open: false })}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleEditItemSave}>
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </Box>
   )

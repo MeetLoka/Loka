@@ -11,6 +11,7 @@ interface SearchAutocompleteProps<T> {
   disabled?: boolean;
   value?: T | null;
   renderOptionExtra?: (option: T) => React.ReactNode;
+  isOptionEqualToValue?: (option: T, value: T) => boolean;
 }
 
 /** Generic debounced search autocomplete replicating root MUI behavior */
@@ -24,7 +25,8 @@ export function SearchAutocomplete<T>(props: SearchAutocompleteProps<T>) {
     onSelect,
     disabled,
     value = null,
-    renderOptionExtra
+    renderOptionExtra,
+    isOptionEqualToValue
   } = props;
 
   const [inputValue, setInputValue] = useState('');
@@ -88,6 +90,7 @@ export function SearchAutocomplete<T>(props: SearchAutocompleteProps<T>) {
       getOptionLabel={(o) => (o ? getLabel(o as T) : '')}
       filterOptions={(x) => x}
       disabled={disabled}
+      isOptionEqualToValue={isOptionEqualToValue}
       noOptionsText={inputValue.length < minChars ? `Type at least ${minChars} characters` : error ? error : 'No results'}
       renderInput={(params) => (
         <TextField

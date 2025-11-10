@@ -109,10 +109,17 @@ export function groupTripByDay(trip: Trip): DayBucket[] {
 
 export function dateRange(start: string, end: string): string[] {
   const result: string[] = []
-  const cur = new Date(start + 'T00:00:00')
-  const endDate = new Date(end + 'T00:00:00')
+  // Parse dates as local dates to avoid timezone issues
+  const [startY, startM, startD] = start.split('-').map(Number)
+  const [endY, endM, endD] = end.split('-').map(Number)
+  const cur = new Date(startY, startM - 1, startD)
+  const endDate = new Date(endY, endM - 1, endD)
+  
   while (cur <= endDate) {
-    result.push(cur.toISOString().slice(0,10))
+    const year = cur.getFullYear()
+    const month = String(cur.getMonth() + 1).padStart(2, '0')
+    const day = String(cur.getDate()).padStart(2, '0')
+    result.push(`${year}-${month}-${day}`)
     cur.setDate(cur.getDate() + 1)
   }
   return result

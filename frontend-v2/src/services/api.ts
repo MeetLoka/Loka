@@ -27,6 +27,10 @@ export async function updateTrip(id: string, updates: Partial<Trip>): Promise<Tr
   return res.data
 }
 
+export async function deleteTrip(id: string): Promise<void> {
+  await api.delete(`/trips/${id}`)
+}
+
 // Trip sub-resource mutations
 export async function addFlightToTrip(tripId: string, flight: any): Promise<Trip> {
   const res = await api.post<Trip>(`/trips/${tripId}/flights`, flight)
@@ -42,6 +46,24 @@ export async function addRideToTrip(tripId: string, ride: any): Promise<Trip> {
 }
 export async function addAttractionToTrip(tripId: string, attraction: any): Promise<Trip> {
   const res = await api.post<Trip>(`/trips/${tripId}/attractions`, attraction)
+  return res.data
+}
+
+// Delete trip items by type and index
+export async function deleteFlightFromTrip(tripId: string, index: number): Promise<Trip> {
+  const res = await api.delete<Trip>(`/trips/${tripId}/flights/${index}`)
+  return res.data
+}
+export async function deleteHotelFromTrip(tripId: string, index: number): Promise<Trip> {
+  const res = await api.delete<Trip>(`/trips/${tripId}/hotels/${index}`)
+  return res.data
+}
+export async function deleteRideFromTrip(tripId: string, index: number): Promise<Trip> {
+  const res = await api.delete<Trip>(`/trips/${tripId}/rides/${index}`)
+  return res.data
+}
+export async function deleteAttractionFromTrip(tripId: string, index: number): Promise<Trip> {
+  const res = await api.delete<Trip>(`/trips/${tripId}/attractions/${index}`)
   return res.data
 }
 

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { connectToDatabase, closeDatabase } from './config/database.js'
 import hotelRoutes from './routes/hotels.js'
 import rideRoutes from './routes/rides.js'
 import placesRoutes from './routes/places.js'
@@ -42,15 +43,33 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' })
 })
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`✓ Server running on port ${PORT}`)
-  console.log('✓ Using in-memory storage for trips')
-  console.log('✓ All API endpoints ready')
-})
+// Start server with MongoDB connection
+async function startServer() {
+  try {
+    // Try to connect to MongoDB
+    await connectToDatabase()
+    console.log('✓ Connected to MongoDB')
+    
+    app.listen(PORT, () => {
+      console.log(`✓ Server running on port ${PORT}`)
+      console.log('✓ Using MongoDB for persistent storage')
+      console.log('✓ All API endpoints ready')
+    })
+  } catch (error) {
+    console.error('⚠️  Failed to connect to MongoDB, falling back to in-memory storage')
+    app.listen(PORT, () => {
+      console.log(`✓ Server running on port ${PORT}`)
+      console.log('⚠️  Using in-memory storage (MongoDB connection failed)')
+      console.log('✓ All API endpoints ready')
+    })
+  }
+}
+
+startServer()
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...')
+  await closeDatabase()
   process.exit(0)
 })

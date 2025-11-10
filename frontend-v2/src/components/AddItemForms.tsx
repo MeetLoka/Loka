@@ -268,6 +268,7 @@ export function AddFlightForm({ tripId, onUpdated, onDone }: { tripId: string, o
                     }}
                     getOptionLabel={(airport: any) => `${airport.code} - ${airport.name}`}
                     onSelect={(airport: any) => setOrigin(airport)}
+                    isOptionEqualToValue={(option: any, value: any) => option.code === value.code}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -282,6 +283,7 @@ export function AddFlightForm({ tripId, onUpdated, onDone }: { tripId: string, o
                     }}
                     getOptionLabel={(airport: any) => `${airport.code} - ${airport.name}`}
                     onSelect={(airport: any) => setDestination(airport)}
+                    isOptionEqualToValue={(option: any, value: any) => option.code === value.code}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -336,12 +338,18 @@ export function AddFlightForm({ tripId, onUpdated, onDone }: { tripId: string, o
                             {flight.airline} - {flight.flightNumber}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {flight.departureAirportCode} → {flight.arrivalAirportCode}
+                            {flight.departure?.iata || flight.departureAirportCode} → {flight.arrival?.iata || flight.arrivalAirportCode}
                           </Typography>
                         </Box>
                         <Box textAlign="right">
                           <Typography variant="body2">
-                            {new Date(flight.departureDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - {new Date(flight.arrivalDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            {(() => {
+                              const depDate = new Date(flight.departure?.scheduled || flight.departureDateTime);
+                              const arrDate = new Date(flight.arrival?.scheduled || flight.arrivalDateTime);
+                              const depTime = isNaN(depDate.getTime()) ? '--:--' : depDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                              const arrTime = isNaN(arrDate.getTime()) ? '--:--' : arrDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                              return `${depTime} - ${arrTime}`;
+                            })()}
                           </Typography>
                           {flight.durationMinutes && (
                             <Typography variant="caption" color="text.secondary">
@@ -350,9 +358,14 @@ export function AddFlightForm({ tripId, onUpdated, onDone }: { tripId: string, o
                           )}
                         </Box>
                       </Stack>
-                      {flight.aircraftType && (
-                        <Chip label={flight.aircraftType} size="small" sx={{ mt: 1 }} />
-                      )}
+                      <Stack direction="row" spacing={1} mt={1}>
+                        {(flight.stops === 0 || !flight.stops) && (
+                          <Chip label="Direct" color="success" size="small" />
+                        )}
+                        {(flight.aircraft || flight.aircraftType) && (
+                          <Chip label={flight.aircraft || flight.aircraftType} size="small" />
+                        )}
+                      </Stack>
                     </Paper>
                   ))}
                 </Stack>
