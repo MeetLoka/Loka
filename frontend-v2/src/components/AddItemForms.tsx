@@ -971,9 +971,46 @@ export function AddHotelForm({
   const [checkOut, setCheckOut] = useState('');
   const [nights, setNights] = useState('');
   const [cost, setCost] = useState('');
+  const [includesMeals, setIncludesMeals] = useState(false);
+  const [mealPlan, setMealPlan] = useState<'breakfast' | 'half-board' | 'all-inclusive'>('breakfast');
+  const [numberOfRooms, setNumberOfRooms] = useState('');
+  const [reservationNames, setReservationNames] = useState<string[]>(['']);
+  const [bookedFrom, setBookedFrom] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Update reservation names array when number of rooms changes
+  useEffect(() => {
+    const numRooms = parseInt(numberOfRooms) || 1;
+    if (numRooms > 0) {
+      setReservationNames(prev => {
+        const newArray = Array(numRooms).fill('');
+        // Preserve existing values
+        for (let i = 0; i < Math.min(prev.length, numRooms); i++) {
+          newArray[i] = prev[i];
+        }
+        return newArray;
+      });
+    }
+  }, [numberOfRooms]);
+
+  // Auto-calculate nights when check-in or check-out changes
+  useEffect(() => {
+    if (checkIn && checkOut) {
+      const checkInDate = new Date(checkIn);
+      const checkOutDate = new Date(checkOut);
+      if (checkInDate < checkOutDate) {
+        const diffTime = checkOutDate.getTime() - checkInDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        setNights(diffDays.toString());
+      } else {
+        setNights('');
+      }
+    } else {
+      setNights('');
+    }
+  }, [checkIn, checkOut]);
 
   // Debounced search for hotels
   useEffect(() => {
@@ -999,6 +1036,8 @@ export function AddHotelForm({
   // Fetch hotel details when selected
   async function handleSelectHotel(hotel: any) {
     setSelected(hotel);
+    setSearchResults([]); // Clear suggestions list
+    setSearchQuery(hotel.name); // Update search field with selected hotel name
     setLoadingDetails(true);
     try {
       const det = await hotelDetails(hotel.placeId);
@@ -1025,6 +1064,13 @@ export function AddHotelForm({
         nights: nights ? Number(nights) : undefined,
         cost: cost ? Number(cost) : undefined,
         rating: hotelDetail?.rating || null,
+        includesMeals: includesMeals,
+        mealPlan: includesMeals ? mealPlan : undefined,
+        numberOfRooms: numberOfRooms ? Number(numberOfRooms) : undefined,
+        reservationNames: reservationNames.filter(name => name.trim() !== '').length > 0 
+          ? reservationNames.filter(name => name.trim() !== '') 
+          : undefined,
+        bookedFrom: bookedFrom || undefined,
       };
       const updated = await addHotelToTrip(tripId, hotelPayload as any);
       onUpdated(updated);
@@ -1036,6 +1082,11 @@ export function AddHotelForm({
       setCheckOut('');
       setNights('');
       setCost('');
+      setIncludesMeals(false);
+      setMealPlan('breakfast');
+      setNumberOfRooms('');
+      setReservationNames(['']);
+      setBookedFrom('');
       onDone?.();
     } catch (e: any) {
       setErr(e?.response?.data?.message || e.message);
@@ -1215,6 +1266,10 @@ export function AddHotelForm({
                         type="number"
                         value={nights}
                         onChange={(e) => setNights(e.target.value)}
+                        helperText="Auto-calculated from dates"
+                        InputProps={{
+                          readOnly: true,
+                        }}
                       />
                     </Grid>
                     <Grid item xs={6}>
@@ -1225,6 +1280,87 @@ export function AddHotelForm({
                         type="number"
                         value={cost}
                         onChange={(e) => setCost(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={includesMeals}
+                            onChange={(e) => setIncludesMeals(e.target.checked)}
+                          />
+                        }
+                        label="Hotel includes meals"
+                      />
+                    </Grid>
+                    {includesMeals && (
+                      <Grid item xs={12}>
+                        <FormControl fullWidth>
+                          <InputLabel id="meal-plan-label">Meal Plan</InputLabel>
+                          <Select
+                            labelId="meal-plan-label"
+                            value={mealPlan}
+                            label="Meal Plan"
+                            onChange={(e) => setMealPlan(e.target.value as any)}
+                          >
+                            <MenuItem value="breakfast">Breakfast</MenuItem>
+                            <MenuItem value="half-board">Half-Board (Breakfast + Dinner)</MenuItem>
+                            <MenuItem value="all-inclusive">All-Inclusive (Breakfast + Lunch + Dinner)</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        Additional Booking Information
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Number of Rooms"
+                        placeholder="Optional"
+                        type="number"
+                        value={numberOfRooms}
+                        onChange={(e) => setNumberOfRooms(e.target.value)}
+                        inputProps={{ min: 1 }}
+                      />
+                    </Grid>
+                    {numberOfRooms && parseInt(numberOfRooms) > 0 && (
+                      <>
+                        <Grid item xs={12}>
+                          <Typography variant="caption" color="text.secondary">
+                            Reservation Names ({parseInt(numberOfRooms)} room{parseInt(numberOfRooms) > 1 ? 's' : ''})
+                          </Typography>
+                        </Grid>
+                        {reservationNames.map((name, index) => (
+                          <Grid item xs={12} sm={6} key={index}>
+                            <TextField
+                              fullWidth
+                              label={`Room ${index + 1} - Reservation Name`}
+                              placeholder="Optional"
+                              value={name}
+                              onChange={(e) => {
+                                const newNames = [...reservationNames];
+                                newNames[index] = e.target.value;
+                                setReservationNames(newNames);
+                              }}
+                            />
+                          </Grid>
+                        ))}
+                      </>
+                    )}
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Booked From"
+                        placeholder="e.g., Booking.com, Expedia, Direct"
+                        value={bookedFrom}
+                        onChange={(e) => setBookedFrom(e.target.value)}
                       />
                     </Grid>
                   </Grid>

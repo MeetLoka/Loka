@@ -102,15 +102,26 @@ export default function GenerateRide({
       }
     });
 
-    // Add hotels
+    // Add hotels - add for EACH day of the stay
     trip.hotels.forEach((hotel, idx) => {
-      tripLocations.push({
-        id: `hotel-${idx}`,
-        name: hotel.name,
-        address: hotel.address,
-        type: 'hotel',
-        date: hotel.checkIn.split('T')[0],
-      });
+      const checkInDate = new Date(hotel.checkIn.split('T')[0]);
+      const checkOutDate = new Date(hotel.checkOut.split('T')[0]);
+      
+      // Generate all dates in the stay range
+      const currentDate = new Date(checkInDate);
+      let dayIndex = 0;
+      while (currentDate <= checkOutDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        tripLocations.push({
+          id: `hotel-${idx}-day-${dayIndex}`,
+          name: `${hotel.name} (Day ${dayIndex + 1})`,
+          address: hotel.address,
+          type: 'hotel',
+          date: dateStr,
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+        dayIndex++;
+      }
     });
 
     // Add attractions
