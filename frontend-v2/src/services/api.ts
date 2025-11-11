@@ -8,7 +8,7 @@ import type {
 } from '../types/domain';
 
 // Use proxy in development (/api), direct URL in production
-const baseURL = import.meta.env.VITE_API_BASE_URL;
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 export const api = axios.create({ baseURL });
 
 // Add request interceptor to include auth token

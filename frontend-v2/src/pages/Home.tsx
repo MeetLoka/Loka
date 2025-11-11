@@ -17,6 +17,7 @@ import {
   Paper,
   Fade,
   Skeleton,
+  Dialog,
 } from '@mui/material';
 import {
   Add,
@@ -27,15 +28,30 @@ import {
   Attractions,
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
+import NewTripWizard from './NewTripWizard';
 
 export default function Home() {
+  const [openNew, setOpenNew] = useState(false);
   const [trips, setTrips] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     listTrips()
-      .then(setTrips)
-      .catch((e) => setError(e.message));
+      .then((data) => {
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setTrips(data);
+        } else {
+          console.error('listTrips returned non-array:', data);
+          setTrips([]);
+          setError('Invalid data received from server');
+        }
+      })
+      .catch((e) => {
+        console.error('Error loading trips:', e);
+        setError(e.message);
+        setTrips([]); // Set to empty array on error
+      });
   }, []);
 
   const ownedTrips = trips?.filter((t) => t.isOwner) || [];
@@ -74,11 +90,10 @@ export default function Home() {
                 one place
               </Typography>
               <Button
-                component={Link}
-                to="/trip/new"
                 variant="contained"
                 size="large"
                 startIcon={<Add />}
+                onClick={() => setOpenNew(true)}
                 sx={{
                   bgcolor: 'white',
                   color: 'primary.main',
@@ -101,6 +116,14 @@ export default function Home() {
           </Container>
         </Box>
       </Paper>
+
+      {/* New Trip Dialog (full-screen) to avoid layout reflow when opening wizard */}
+      <Dialog fullScreen open={openNew} onClose={() => setOpenNew(false)}>
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          {/* Lazy-load the wizard inside the dialog to keep route behavior intact */}
+          <NewTripWizard />
+        </Container>
+      </Dialog>
 
       {/* Owned Trips Section Header */}
       <Stack

@@ -40,6 +40,36 @@ import {
   placeDetails,
 } from '../services/api';
 
+/**
+ * Parse and format a datetime string while preserving the original timezone.
+ * Handles formats like "2025-11-13 10:20+04:00" or "2025-11-13T10:20:00+04:00"
+ * Returns the time and date in the original timezone, not converted to user's local time.
+ */
+function formatDateTimeLocal(dateTimeStr: string): { date: string; time: string; full: string } {
+  if (!dateTimeStr) return { date: '', time: '', full: '' };
+  
+  // Handle both ISO format (2025-11-13T10:20:00+04:00) and space format (2025-11-13 10:20+04:00)
+  const parts = dateTimeStr.includes('T')
+    ? dateTimeStr.split('T')
+    : dateTimeStr.split(' ');
+  
+  const datePart = parts[0]; // "2025-11-13"
+  const timePart = parts[1]?.split(/[+-]/)[0] || ''; // "10:20:00" or "10:20"
+  const timeOnly = timePart.slice(0, 5); // "10:20"
+  
+  // Format full datetime for display (date + time, no timezone conversion)
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const [year, month, day] = datePart.split('-');
+  const formattedDate = `${monthNames[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
+  const formattedTime = timeOnly;
+  
+  return {
+    date: datePart,
+    time: timeOnly,
+    full: `${formattedDate} ${formattedTime}`
+  };
+}
+
 export function AddFlightForm({
   tripId,
   onUpdated,
@@ -434,26 +464,10 @@ export function AddFlightForm({
                         <Box textAlign="right">
                           <Typography variant="body2">
                             {(() => {
-                              const depDate = new Date(
-                                flight.departure?.scheduled ||
-                                  flight.departureDateTime
-                              );
-                              const arrDate = new Date(
-                                flight.arrival?.scheduled ||
-                                  flight.arrivalDateTime
-                              );
-                              const depTime = isNaN(depDate.getTime())
-                                ? '--:--'
-                                : depDate.toLocaleTimeString('en-US', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  });
-                              const arrTime = isNaN(arrDate.getTime())
-                                ? '--:--'
-                                : arrDate.toLocaleTimeString('en-US', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  });
+                              const depDateTime = flight.departure?.scheduled || flight.departureDateTime;
+                              const arrDateTime = flight.arrival?.scheduled || flight.arrivalDateTime;
+                              const depTime = depDateTime ? formatDateTimeLocal(depDateTime).time : '--:--';
+                              const arrTime = arrDateTime ? formatDateTimeLocal(arrDateTime).time : '--:--';
                               return `${depTime} - ${arrTime}`;
                             })()}
                           </Typography>
@@ -615,10 +629,10 @@ export function AddFlightForm({
                         (flightData || selectedFlight).departure?.iata}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {new Date(
+                      {formatDateTimeLocal(
                         (flightData || selectedFlight).departureDateTime ||
                           (flightData || selectedFlight).departure?.scheduled
-                      ).toLocaleString()}
+                      ).full}
                     </Typography>
                     {((flightData || selectedFlight).terminal?.departure ||
                       (flightData || selectedFlight).departure?.terminal) && (
@@ -658,10 +672,10 @@ export function AddFlightForm({
                         (flightData || selectedFlight).arrival?.iata}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {new Date(
+                      {formatDateTimeLocal(
                         (flightData || selectedFlight).arrivalDateTime ||
                           (flightData || selectedFlight).arrival?.scheduled
-                      ).toLocaleString()}
+                      ).full}
                     </Typography>
                     {((flightData || selectedFlight).terminal?.arrival ||
                       (flightData || selectedFlight).arrival?.terminal) && (
