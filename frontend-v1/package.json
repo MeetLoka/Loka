@@ -1,29 +1,29 @@
 {
-  "name": "meet-loca-frontend-v1",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "lint": "echo 'No linter configured yet'"
-  },
-  "dependencies": {
-    "@emotion/react": "^11.13.3",
-    "@emotion/styled": "^11.13.0",
-    "@mui/icons-material": "^7.3.5",
-    "@mui/material": "^7.3.5",
-    "axios": "^1.7.9",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^6.28.0"
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@types/node": "^22.0.0",
-    "typescript": "^5.6.3",
-    "vite": "^7.2.1"
-  }
+	"name": "meet-loka-frontend-v1",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc -b && vite build",
+		"preview": "vite preview",
+		"lint": "echo 'No linter configured yet'"
+	},
+	"dependencies": {
+		"@emotion/react": "^11.13.3",
+		"@emotion/styled": "^11.13.0",
+		"@mui/icons-material": "^7.3.5",
+		"@mui/material": "^7.3.5",
+		"axios": "^1.7.9",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"react-router-dom": "^6.28.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"@types/node": "^22.0.0",
+		"typescript": "^5.6.3",
+		"vite": "^7.2.1"
+	}
 }
