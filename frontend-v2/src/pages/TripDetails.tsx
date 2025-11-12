@@ -3536,7 +3536,9 @@ export default function TripDetails() {
           </Card>
 
           <Card sx={{ p: 2 }}>
-            <Box sx={{ width: '100%', overflowX: 'auto', overflowY: 'visible' }}>
+            <Box
+              sx={{ width: '100%', overflowX: 'auto', overflowY: 'visible' }}
+            >
               {(() => {
                 // Calculate trip duration in days
                 const startDate = new Date(trip.startDate);
@@ -3559,7 +3561,9 @@ export default function TripDetails() {
                     new Date(trip.endDate).getTime() - tripStart + 86400000; // +1 day in ms
 
                   // Parse start
-                  const [startHour, startMin] = itemStartTime.split(':').map(Number);
+                  const [startHour, startMin] = itemStartTime
+                    .split(':')
+                    .map(Number);
                   const startDateTime =
                     new Date(itemStartDate).getTime() +
                     startHour * 3600000 +
@@ -3571,7 +3575,9 @@ export default function TripDetails() {
                   // Parse end
                   let widthPercent = 2; // Minimum width for point events
                   if (itemEndDate && itemEndTime) {
-                    const [endHour, endMin] = itemEndTime.split(':').map(Number);
+                    const [endHour, endMin] = itemEndTime
+                      .split(':')
+                      .map(Number);
                     const endDateTime =
                       new Date(itemEndDate).getTime() +
                       endHour * 3600000 +
@@ -3588,9 +3594,13 @@ export default function TripDetails() {
                 // Collect all items by category
                 const flights = trip.flights.map((f) => ({
                   ...f,
-                  startDate: f.departureDateTime.split('T')[0] || f.departureDateTime.split(' ')[0],
+                  startDate:
+                    f.departureDateTime.split('T')[0] ||
+                    f.departureDateTime.split(' ')[0],
                   startTime: extractTime(f.departureDateTime),
-                  endDate: f.arrivalDateTime.split('T')[0] || f.arrivalDateTime.split(' ')[0],
+                  endDate:
+                    f.arrivalDateTime.split('T')[0] ||
+                    f.arrivalDateTime.split(' ')[0],
                   endTime: extractTime(f.arrivalDateTime),
                   label: `${f.airline || ''} ${f.flightNumber || ''} | ${f.departureAirportCode} → ${f.arrivalAirportCode}`,
                 }));
@@ -3649,7 +3659,9 @@ export default function TripDetails() {
                       <Box sx={{ width: 150, flexShrink: 0 }} />
 
                       {/* Days timeline */}
-                      <Box sx={{ flex: 1, display: 'flex', position: 'relative' }}>
+                      <Box
+                        sx={{ flex: 1, display: 'flex', position: 'relative' }}
+                      >
                         {Array.from({ length: totalDays }, (_, i) => {
                           const dayDate = new Date(startDate);
                           dayDate.setDate(dayDate.getDate() + i);
@@ -3710,7 +3722,10 @@ export default function TripDetails() {
                         }}
                       >
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <FlightIcon fontSize="small" sx={{ color: '#1976d2' }} />
+                          <FlightIcon
+                            fontSize="small"
+                            sx={{ color: '#1976d2' }}
+                          />
                           <Typography variant="subtitle2" fontWeight={600}>
                             ✈️ Flights
                           </Typography>
@@ -3797,7 +3812,11 @@ export default function TripDetails() {
                                 <Typography
                                   variant="caption"
                                   noWrap
-                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                  sx={{
+                                    px: 1,
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                  }}
                                 >
                                   {flight.flightNumber}
                                 </Typography>
@@ -3828,7 +3847,10 @@ export default function TripDetails() {
                         }}
                       >
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <HotelIcon fontSize="small" sx={{ color: '#9c27b0' }} />
+                          <HotelIcon
+                            fontSize="small"
+                            sx={{ color: '#9c27b0' }}
+                          />
                           <Typography variant="subtitle2" fontWeight={600}>
                             🏨 Hotels
                           </Typography>
@@ -3912,7 +3934,11 @@ export default function TripDetails() {
                                 <Typography
                                   variant="caption"
                                   noWrap
-                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                  sx={{
+                                    px: 1,
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                  }}
                                 >
                                   {hotel.name}
                                 </Typography>
@@ -3943,7 +3969,10 @@ export default function TripDetails() {
                         }}
                       >
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <DirectionsCar fontSize="small" sx={{ color: '#0288d1' }} />
+                          <DirectionsCar
+                            fontSize="small"
+                            sx={{ color: '#0288d1' }}
+                          />
                           <Typography variant="subtitle2" fontWeight={600}>
                             🚗 Rides
                           </Typography>
@@ -4027,7 +4056,11 @@ export default function TripDetails() {
                                 <Typography
                                   variant="caption"
                                   noWrap
-                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                  sx={{
+                                    px: 1,
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                  }}
                                 >
                                   Ride
                                 </Typography>
@@ -4145,7 +4178,11 @@ export default function TripDetails() {
                                 <Typography
                                   variant="caption"
                                   noWrap
-                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                  sx={{
+                                    px: 1,
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                  }}
                                 >
                                   {activity.name}
                                 </Typography>
