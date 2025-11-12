@@ -209,6 +209,26 @@ export async function calculateRideRoute(origin: string, destination: string) {
   return res.data;
 }
 
+// Calculate smart checkout time based on flight and hotel location
+export async function calculateSmartCheckoutTime(
+  hotelAddress: string,
+  airportCode: string,
+  flightDepartureTime: string
+): Promise<{
+  checkoutTime: string;
+  driveDurationMinutes: number;
+  distance: string;
+  shouldCreateRide: boolean;
+  lateNightFlight: boolean;
+}> {
+  const res = await api.post('/rides/smart-checkout', {
+    hotelAddress,
+    airportCode,
+    flightDepartureTime,
+  });
+  return res.data;
+}
+
 // Places / Attractions
 export async function placesAutocomplete(
   input: string,

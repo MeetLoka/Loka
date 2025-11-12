@@ -133,13 +133,16 @@ export default function Home() {
         mb={3}
       >
         <Typography variant="h5" component="h2" fontWeight={600}>
-          Your Trips
+          My Trips {trips && `(${ownedTrips.length})`}
         </Typography>
-        {trips && ownedTrips.length > 0 && (
-          <Typography variant="body2" color="text.secondary">
-            {ownedTrips.length} {ownedTrips.length === 1 ? 'trip' : 'trips'}
-          </Typography>
-        )}
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<Add />}
+          onClick={() => setOpenNew(true)}
+        >
+          New Trip
+        </Button>
       </Stack>
 
       {error && (

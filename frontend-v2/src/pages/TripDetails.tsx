@@ -17,6 +17,7 @@ import {
   hotelDetails,
   placesAutocomplete,
   placeDetails,
+  calculateSmartCheckoutTime,
 } from '../services/api';
 import type { Trip } from '../types/domain';
 import { groupTripByDay } from '../types/domain';
@@ -382,6 +383,24 @@ export default function TripDetails() {
   const [editSearchResults, setEditSearchResults] = useState<any[]>([]);
   const [editLoadingSearch, setEditLoadingSearch] = useState(false);
 
+  // Smart checkout data: key is hotel checkOut date, value contains checkout time and ride info
+  const [smartCheckoutData, setSmartCheckoutData] = useState<
+    Record<
+      string,
+      {
+        checkoutTime: string;
+        driveDurationMinutes: number;
+        distance: string;
+        shouldCreateRide: boolean;
+        lateNightFlight: boolean;
+        hotelAddress: string;
+        airportCode: string;
+        flightDepartureTime: string;
+        message?: string;
+      }
+    >
+  >({});
+
   const isOwner = trip?.isOwner !== false; // Default to true if not specified
   const isShared = trip?.isShared === true;
 
@@ -391,6 +410,63 @@ export default function TripDetails() {
         .then(setTrip)
         .catch((e) => setError(e.message));
   }, [id]);
+
+  // Calculate smart checkout times when trip loads or changes
+  useEffect(() => {
+    if (!trip) return;
+
+    const calculateSmartCheckouts = async () => {
+      const buckets = groupTripByDay(trip);
+      const checkoutData: typeof smartCheckoutData = {};
+
+      for (const hotel of trip.hotels) {
+        if (!hotel.checkOut || !hotel.address) continue;
+
+        const checkOutDate = hotel.checkOut.split('T')[0];
+
+        // Find if there's a departure flight on the checkout day
+        const checkoutDayBucket = buckets.find((b) => b.date === checkOutDate);
+        if (!checkoutDayBucket || checkoutDayBucket.flights.length === 0) {
+          // No flight on checkout day, use default 12:00 PM
+          continue;
+        }
+
+        // Find the earliest flight on checkout day
+        const earliestFlight = checkoutDayBucket.flights.reduce(
+          (earliest, flight) => {
+            const flightTime = extractTime(flight.departureDateTime);
+            const earliestTime = extractTime(earliest.departureDateTime);
+            return flightTime < earliestTime ? flight : earliest;
+          }
+        );
+
+        // Extract airport code from flight
+        const airportCode = earliestFlight.departureAirportCode;
+
+        try {
+          const smartData = await calculateSmartCheckoutTime(
+            hotel.address,
+            airportCode,
+            earliestFlight.departureDateTime
+          );
+
+          checkoutData[checkOutDate + '_' + hotel.placeId] = {
+            ...smartData,
+            hotelAddress: hotel.address,
+            airportCode,
+            flightDepartureTime: earliestFlight.departureDateTime,
+          };
+        } catch (error) {
+          console.error('Failed to calculate smart checkout:', error);
+          // Will fallback to default 12:00 PM
+        }
+      }
+
+      setSmartCheckoutData(checkoutData);
+    };
+
+    calculateSmartCheckouts();
+  }, [trip]);
 
   const refreshTrip = async () => {
     if (id) {
@@ -2229,37 +2305,14 @@ export default function TripDetails() {
                   return checkOutDate === day.date;
                 })
                 .map((h, i) => {
-                  // Find the earliest flight on this day to determine checkout time
-                  const dayFlights = day.flights.filter(
-                    (f) => f.departureDateTime
-                  );
+                  // Check if we have smart checkout data for this hotel
+                  const smartKey = `${day.date}_${h.placeId}`;
+                  const smartData = smartCheckoutData[smartKey];
+
                   let checkoutTime = '12:00'; // Default checkout time
 
-                  if (dayFlights.length > 0) {
-                    const earliestFlight = dayFlights.reduce(
-                      (earliest, flight) => {
-                        const flightTime = extractTime(
-                          flight.departureDateTime
-                        );
-                        const earliestTime = extractTime(
-                          earliest.departureDateTime
-                        );
-                        return flightTime < earliestTime ? flight : earliest;
-                      }
-                    );
-
-                    const flightTime = extractTime(
-                      earliestFlight.departureDateTime
-                    );
-                    const [flightHour, flightMinute] = flightTime
-                      .split(':')
-                      .map(Number);
-
-                    // If flight is before 12:00, set checkout 2 hours before flight
-                    if (flightHour < 12) {
-                      const checkoutHour = Math.max(6, flightHour - 2); // Not earlier than 6 AM
-                      checkoutTime = `${checkoutHour.toString().padStart(2, '0')}:00`;
-                    }
+                  if (smartData) {
+                    checkoutTime = smartData.checkoutTime;
                   }
 
                   return {
@@ -2268,6 +2321,7 @@ export default function TripDetails() {
                     time: checkoutTime,
                     originalIndex: i,
                     isCheckOut: true,
+                    smartCheckoutInfo: smartData, // Attach smart data for display
                   };
                 }),
               ...day.rides.map((r, i) => ({
@@ -3034,15 +3088,130 @@ export default function TripDetails() {
                                       >
                                         Check-out time: {item.time}
                                       </Typography>
-                                      <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        display="block"
-                                        mt={0.5}
-                                      >
-                                        Please ensure all belongings are packed
-                                        and room is vacated by checkout time.
-                                      </Typography>
+
+                                      {(item as any).smartCheckoutInfo && (
+                                        <>
+                                          {(item as any).smartCheckoutInfo
+                                            .lateNightFlight && (
+                                            <Alert
+                                              severity="info"
+                                              sx={{ mt: 1, mb: 0.5 }}
+                                            >
+                                              <Typography variant="caption">
+                                                {
+                                                  (item as any)
+                                                    .smartCheckoutInfo.message
+                                                }
+                                              </Typography>
+                                            </Alert>
+                                          )}
+
+                                          {!(item as any).smartCheckoutInfo
+                                            .lateNightFlight && (
+                                            <>
+                                              <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                display="block"
+                                                mt={0.5}
+                                              >
+                                                Drive to airport:{' '}
+                                                {
+                                                  (item as any)
+                                                    .smartCheckoutInfo.distance
+                                                }{' '}
+                                                (
+                                                {
+                                                  (item as any)
+                                                    .smartCheckoutInfo
+                                                    .driveDurationMinutes
+                                                }{' '}
+                                                min)
+                                              </Typography>
+                                              <Typography
+                                                variant="caption"
+                                                color="success.main"
+                                                display="block"
+                                                fontWeight={600}
+                                                mt={0.5}
+                                              >
+                                                ✓ Smart checkout time calculated
+                                                based on your flight
+                                              </Typography>
+
+                                              {(item as any).smartCheckoutInfo
+                                                .shouldCreateRide &&
+                                                isOwner && (
+                                                  <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    color="primary"
+                                                    startIcon={
+                                                      <DirectionsCar />
+                                                    }
+                                                    onClick={async () => {
+                                                      const smartInfo = (
+                                                        item as any
+                                                      ).smartCheckoutInfo;
+                                                      const checkoutTimeHour =
+                                                        item.time
+                                                          .split(':')[0]
+                                                          .padStart(2, '0');
+                                                      const checkoutTimeMinute =
+                                                        item.time.split(':')[1];
+                                                      const rideTime = `${checkoutTimeHour}:${checkoutTimeMinute}`;
+
+                                                      try {
+                                                        const ridePayload = {
+                                                          type: 'taxi',
+                                                          pickup: (
+                                                            item.data as any
+                                                          ).address,
+                                                          dropoff: `${smartInfo.airportCode} Airport`,
+                                                          distance:
+                                                            smartInfo.distance,
+                                                          duration: `${smartInfo.driveDurationMinutes} min`,
+                                                          date: day.date,
+                                                          time: rideTime,
+                                                          mode: 'driving',
+                                                        };
+                                                        await addRideToTrip(
+                                                          trip.id,
+                                                          ridePayload as any
+                                                        );
+                                                        await refreshTrip();
+                                                        alert(
+                                                          'Ride to airport created successfully!'
+                                                        );
+                                                      } catch (error: any) {
+                                                        alert(
+                                                          'Failed to create ride: ' +
+                                                            error.message
+                                                        );
+                                                      }
+                                                    }}
+                                                    sx={{ mt: 1 }}
+                                                  >
+                                                    Create Ride to Airport
+                                                  </Button>
+                                                )}
+                                            </>
+                                          )}
+                                        </>
+                                      )}
+
+                                      {!(item as any).smartCheckoutInfo && (
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          display="block"
+                                          mt={0.5}
+                                        >
+                                          Please ensure all belongings are
+                                          packed and room is vacated by checkout
+                                          time.
+                                        </Typography>
+                                      )}
                                     </>
                                   )}
 
