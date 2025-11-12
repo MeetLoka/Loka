@@ -124,8 +124,10 @@ export default function NewTripWizard() {
           mb={2}
         >
           <Button
-            component={Link}
-            to="/"
+            type="button"
+            onClick={() => {
+              window.location.href = '/';
+            }}
             startIcon={<ArrowBack />}
             sx={{
               color: 'white',

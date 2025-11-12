@@ -13,6 +13,10 @@ import {
   addHotelToTrip,
   addRideToTrip,
   addAttractionToTrip,
+  hotelAutocomplete,
+  hotelDetails,
+  placesAutocomplete,
+  placeDetails,
 } from '../services/api';
 import type { Trip } from '../types/domain';
 import { groupTripByDay } from '../types/domain';
@@ -69,6 +73,11 @@ import {
   DirectionsCar,
   AttractionsOutlined,
   Restaurant as RestaurantIcon,
+  Park as ParkIcon,
+  TheaterComedy as ShowIcon,
+  Museum as MuseumIcon,
+  Event as EventIcon,
+  Category as CustomIcon,
   CalendarMonth,
   Close,
   AccessTime,
@@ -82,6 +91,30 @@ import {
   Share as ShareIcon,
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
+
+// Helper function to get attraction type label
+function getAttractionTypeLabel(type?: string, customType?: string): string {
+  if (type === 'custom' && customType) return customType;
+
+  switch (type) {
+    case 'restaurant':
+      return 'Restaurant';
+    case 'park':
+      return 'Park';
+    case 'show':
+      return 'Show';
+    case 'museum':
+      return 'Museum';
+    case 'event':
+      return 'Event';
+    case 'theme-park':
+      return 'Theme Park';
+    case 'water-park':
+      return 'Water Park';
+    default:
+      return 'Attraction';
+  }
+}
 import ShareTripDialog from '../components/ShareTripDialog';
 
 type FilterCategory = 'all' | 'flights' | 'hotels' | 'rides' | 'attractions';
@@ -344,6 +377,11 @@ export default function TripDetails() {
   >([]);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
+  // Edit dialog autocomplete state
+  const [editSearchQuery, setEditSearchQuery] = useState('');
+  const [editSearchResults, setEditSearchResults] = useState<any[]>([]);
+  const [editLoadingSearch, setEditLoadingSearch] = useState(false);
+
   const isOwner = trip?.isOwner !== false; // Default to true if not specified
   const isShared = trip?.isShared === true;
 
@@ -364,6 +402,50 @@ export default function TripDetails() {
       }
     }
   };
+
+  // Debounced autocomplete search for edit dialogs
+  useEffect(() => {
+    if (!editItem.open || editSearchQuery.trim().length < 3) {
+      setEditSearchResults([]);
+      return;
+    }
+
+    let active = true;
+    setEditLoadingSearch(true);
+    const timer = setTimeout(async () => {
+      try {
+        let results;
+        if (editItem.type === 'hotel') {
+          const res = await hotelAutocomplete(editSearchQuery.trim());
+          results = res.suggestions || [];
+        } else if (editItem.type === 'attraction') {
+          const res = await placesAutocomplete(editSearchQuery.trim());
+          results = res.suggestions || [];
+        }
+        if (active) {
+          setEditSearchResults(results || []);
+        }
+      } catch (e) {
+        console.error('Edit search error:', e);
+      } finally {
+        if (active) setEditLoadingSearch(false);
+      }
+    }, 500);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      setEditLoadingSearch(false);
+    };
+  }, [editSearchQuery, editItem.open, editItem.type]);
+
+  // Clear search when dialog closes
+  useEffect(() => {
+    if (!editItem.open) {
+      setEditSearchQuery('');
+      setEditSearchResults([]);
+    }
+  }, [editItem.open]);
 
   // Helper function to extract time from datetime string (handles both formats)
   const extractTime = (dateTimeStr: string): string => {
@@ -462,6 +544,43 @@ export default function TripDetails() {
     data: any
   ) => {
     setEditItem({ open: true, type, index, data: { ...data } });
+    setEditSearchQuery(data.name || '');
+  };
+
+  const handleEditSearchSelect = async (result: any) => {
+    setEditSearchResults([]);
+    setEditSearchQuery(result.name || '');
+
+    try {
+      if (editItem.type === 'hotel') {
+        const details = await hotelDetails(result.placeId);
+        setEditItem({
+          ...editItem,
+          data: {
+            ...editItem.data,
+            placeId: result.placeId,
+            name: details.hotel?.name || result.name,
+            address: details.hotel?.formattedAddress || result.formattedAddress,
+            rating: details.hotel?.rating || editItem.data.rating,
+          },
+        });
+      } else if (editItem.type === 'attraction') {
+        const details = await placeDetails(result.placeId);
+        setEditItem({
+          ...editItem,
+          data: {
+            ...editItem.data,
+            placeId: result.placeId,
+            name: details.place?.name || result.name,
+            address: details.place?.formattedAddress || result.formattedAddress,
+            rating: details.place?.rating || editItem.data.rating,
+            website: details.place?.website || editItem.data.website,
+          },
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching details:', e);
+    }
   };
 
   const handleItemSelect = (type: string, index: number, item: any) => {
@@ -1931,6 +2050,19 @@ export default function TripDetails() {
                                   >
                                     <strong>Attraction Details</strong>
                                   </Typography>
+                                  {a.attractionType && (
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      display="block"
+                                    >
+                                      Type:{' '}
+                                      {getAttractionTypeLabel(
+                                        a.attractionType,
+                                        a.customType
+                                      )}
+                                    </Typography>
+                                  )}
                                   {a.address && (
                                     <Typography
                                       variant="caption"
@@ -2073,12 +2205,71 @@ export default function TripDetails() {
                 time: extractTime(f.departureDateTime),
                 originalIndex: i,
               })),
+              // Add hotel arrival events (before check-in)
+              ...day.hotels.map((h, i) => ({
+                type: 'hotel-arrival',
+                data: h,
+                time: h.arrivalTime || '15:00', // Use custom arrival time or default to check-in time
+                originalIndex: i,
+                isArrival: true,
+              })),
               ...day.hotels.map((h, i) => ({
                 type: 'hotel',
                 data: h,
-                time: 'Check-in',
+                time: '15:00', // Standard check-in time
                 originalIndex: i,
+                isCheckIn: true,
               })),
+              // Add checkout events for hotels - search ALL trip hotels, not just day.hotels
+              ...trip.hotels
+                .filter((h) => {
+                  // Check if checkout date matches this day
+                  if (!h.checkOut) return false;
+                  const checkOutDate = h.checkOut.split('T')[0];
+                  return checkOutDate === day.date;
+                })
+                .map((h, i) => {
+                  // Find the earliest flight on this day to determine checkout time
+                  const dayFlights = day.flights.filter(
+                    (f) => f.departureDateTime
+                  );
+                  let checkoutTime = '12:00'; // Default checkout time
+
+                  if (dayFlights.length > 0) {
+                    const earliestFlight = dayFlights.reduce(
+                      (earliest, flight) => {
+                        const flightTime = extractTime(
+                          flight.departureDateTime
+                        );
+                        const earliestTime = extractTime(
+                          earliest.departureDateTime
+                        );
+                        return flightTime < earliestTime ? flight : earliest;
+                      }
+                    );
+
+                    const flightTime = extractTime(
+                      earliestFlight.departureDateTime
+                    );
+                    const [flightHour, flightMinute] = flightTime
+                      .split(':')
+                      .map(Number);
+
+                    // If flight is before 12:00, set checkout 2 hours before flight
+                    if (flightHour < 12) {
+                      const checkoutHour = Math.max(6, flightHour - 2); // Not earlier than 6 AM
+                      checkoutTime = `${checkoutHour.toString().padStart(2, '0')}:00`;
+                    }
+                  }
+
+                  return {
+                    type: 'hotel-checkout',
+                    data: h,
+                    time: checkoutTime,
+                    originalIndex: i,
+                    isCheckOut: true,
+                  };
+                }),
               ...day.rides.map((r, i) => ({
                 type: 'ride',
                 data: r,
@@ -2099,9 +2290,18 @@ export default function TripDetails() {
               })),
             ].sort((a, b) => {
               // Sort chronologically by time
-              const timeA = a.time === 'Check-in' ? '15:00' : a.time || '00:00';
-              const timeB = b.time === 'Check-in' ? '15:00' : b.time || '00:00';
-              return timeA.localeCompare(timeB);
+              const timeA = a.time || '';
+              const timeB = b.time || '';
+
+              // If both have times, sort by time (times are already in HH:MM format)
+              if (timeA && timeB) {
+                return timeA.localeCompare(timeB);
+              }
+              // If only one has time, it comes first
+              if (timeA && !timeB) return -1;
+              if (!timeA && timeB) return 1;
+              // If neither has time, maintain original order
+              return 0;
             });
 
             if (allItems.length === 0 && filter === 'all') {
@@ -2172,7 +2372,9 @@ export default function TripDetails() {
                                 bgcolor:
                                   item.type === 'flight'
                                     ? 'primary.main'
-                                    : item.type === 'hotel'
+                                    : item.type === 'hotel' ||
+                                        item.type === 'hotel-checkout' ||
+                                        item.type === 'hotel-arrival'
                                       ? 'secondary.main'
                                       : item.type === 'ride'
                                         ? 'info.main'
@@ -2223,7 +2425,9 @@ export default function TripDetails() {
                                           color="primary"
                                         />
                                       )}
-                                      {item.type === 'hotel' && (
+                                      {(item.type === 'hotel' ||
+                                        item.type === 'hotel-checkout' ||
+                                        item.type === 'hotel-arrival') && (
                                         <HotelIcon
                                           fontSize="small"
                                           color="secondary"
@@ -2252,7 +2456,13 @@ export default function TripDetails() {
                                         color="text.secondary"
                                         fontWeight={600}
                                       >
-                                        {item.type.toUpperCase()}
+                                        {item.type === 'hotel-checkout'
+                                          ? 'HOTEL CHECK-OUT'
+                                          : item.type === 'hotel-arrival'
+                                            ? 'ARRIVE AT HOTEL'
+                                            : item.type === 'hotel'
+                                              ? 'HOTEL CHECK-IN'
+                                              : item.type.toUpperCase()}
                                       </Typography>
                                     </Stack>
 
@@ -2288,6 +2498,23 @@ export default function TripDetails() {
                                       </Box>
                                     )}
 
+                                    {item.type === 'hotel-arrival' && (
+                                      <Box>
+                                        <Typography
+                                          variant="body1"
+                                          fontWeight={600}
+                                        >
+                                          {(item.data as any).name}
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          color="text.secondary"
+                                        >
+                                          Arrival time: {item.time}
+                                        </Typography>
+                                      </Box>
+                                    )}
+
                                     {item.type === 'hotel' && (
                                       <Box>
                                         <Typography
@@ -2301,6 +2528,24 @@ export default function TripDetails() {
                                           color="text.secondary"
                                         >
                                           Check-in: {(item.data as any).checkIn}
+                                        </Typography>
+                                      </Box>
+                                    )}
+
+                                    {item.type === 'hotel-checkout' && (
+                                      <Box>
+                                        <Typography
+                                          variant="body1"
+                                          fontWeight={600}
+                                        >
+                                          {(item.data as any).name}
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          color="text.secondary"
+                                        >
+                                          Check-out:{' '}
+                                          {(item.data as any).checkOut}
                                         </Typography>
                                       </Box>
                                     )}
@@ -2351,7 +2596,13 @@ export default function TripDetails() {
                                           variant="body1"
                                           fontWeight={600}
                                         >
-                                          {(item.data as any).type.charAt(0).toUpperCase() + (item.data as any).type.slice(1)} at {(item.data as any).hotelName}
+                                          {(item.data as any).type
+                                            .charAt(0)
+                                            .toUpperCase() +
+                                            (item.data as any).type.slice(
+                                              1
+                                            )}{' '}
+                                          at {(item.data as any).hotelName}
                                         </Typography>
                                         <Typography
                                           variant="body2"
@@ -2370,14 +2621,15 @@ export default function TripDetails() {
                                       </Box>
                                     )}
 
-                                    {item.type !== 'meal' && (item.data as any).cost && (
-                                      <Chip
-                                        size="small"
-                                        label={`$${(item.data as any).cost}`}
-                                        color="success"
-                                        sx={{ mt: 1 }}
-                                      />
-                                    )}
+                                    {item.type !== 'meal' &&
+                                      (item.data as any).cost && (
+                                        <Chip
+                                          size="small"
+                                          label={`$${(item.data as any).cost}`}
+                                          color="success"
+                                          sx={{ mt: 1 }}
+                                        />
+                                      )}
                                   </Box>
 
                                   <Stack spacing={1} alignItems="flex-end">
@@ -2642,38 +2894,46 @@ export default function TripDetails() {
                                           color="text.secondary"
                                           display="block"
                                         >
-                                          Rooms: {(item.data as any).numberOfRooms}
+                                          Rooms:{' '}
+                                          {(item.data as any).numberOfRooms}
                                         </Typography>
                                       )}
-                                      {(item.data as any).reservationNames && (item.data as any).reservationNames.length > 0 && (
-                                        <>
-                                          <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                            display="block"
-                                          >
-                                            Reservations:
-                                          </Typography>
-                                          {(item.data as any).reservationNames.map((name: string, idx: number) => (
+                                      {(item.data as any).reservationNames &&
+                                        (item.data as any).reservationNames
+                                          .length > 0 && (
+                                          <>
                                             <Typography
-                                              key={idx}
                                               variant="caption"
                                               color="text.secondary"
                                               display="block"
-                                              sx={{ pl: 1 }}
                                             >
-                                              • Room {idx + 1}: {name}
+                                              Reservations:
                                             </Typography>
-                                          ))}
-                                        </>
-                                      )}
+                                            {(
+                                              item.data as any
+                                            ).reservationNames.map(
+                                              (name: string, idx: number) => (
+                                                <Typography
+                                                  key={idx}
+                                                  variant="caption"
+                                                  color="text.secondary"
+                                                  display="block"
+                                                  sx={{ pl: 1 }}
+                                                >
+                                                  • Room {idx + 1}: {name}
+                                                </Typography>
+                                              )
+                                            )}
+                                          </>
+                                        )}
                                       {(item.data as any).bookedFrom && (
                                         <Typography
                                           variant="caption"
                                           color="text.secondary"
                                           display="block"
                                         >
-                                          Booked from: {(item.data as any).bookedFrom}
+                                          Booked from:{' '}
+                                          {(item.data as any).bookedFrom}
                                         </Typography>
                                       )}
                                       {(item.data as any).includesMeals && (
@@ -2683,11 +2943,106 @@ export default function TripDetails() {
                                           display="block"
                                         >
                                           Meal Plan:{' '}
-                                          {(item.data as any).mealPlan === 'breakfast' && 'Breakfast'}
-                                          {(item.data as any).mealPlan === 'half-board' && 'Half-Board (Breakfast + Dinner)'}
-                                          {(item.data as any).mealPlan === 'all-inclusive' && 'All-Inclusive'}
+                                          {(item.data as any).mealPlan ===
+                                            'breakfast' && 'Breakfast'}
+                                          {(item.data as any).mealPlan ===
+                                            'half-board' &&
+                                            'Half-Board (Breakfast + Dinner)'}
+                                          {(item.data as any).mealPlan ===
+                                            'all-inclusive' && 'All-Inclusive'}
                                         </Typography>
                                       )}
+                                    </>
+                                  )}
+
+                                  {item.type === 'hotel-arrival' && (
+                                    <>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        mb={0.5}
+                                      >
+                                        <strong>Arrival Information</strong>
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                      >
+                                        Hotel: {(item.data as any).name}
+                                      </Typography>
+                                      {(item.data as any).address && (
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          display="block"
+                                        >
+                                          Address: {(item.data as any).address}
+                                        </Typography>
+                                      )}
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                      >
+                                        Arrival time: {item.time}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        mt={0.5}
+                                      >
+                                        {(item.data as any).arrivalTime
+                                          ? 'Scheduled arrival at hotel.'
+                                          : 'Standard check-in time (15:00). Arrive earlier if needed.'}
+                                      </Typography>
+                                    </>
+                                  )}
+
+                                  {item.type === 'hotel-checkout' && (
+                                    <>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        mb={0.5}
+                                      >
+                                        <strong>Check-out Information</strong>
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                      >
+                                        Hotel: {(item.data as any).name}
+                                      </Typography>
+                                      {(item.data as any).address && (
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          display="block"
+                                        >
+                                          Address: {(item.data as any).address}
+                                        </Typography>
+                                      )}
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                      >
+                                        Check-out time: {item.time}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        mt={0.5}
+                                      >
+                                        Please ensure all belongings are packed
+                                        and room is vacated by checkout time.
+                                      </Typography>
                                     </>
                                   )}
 
@@ -2779,6 +3134,19 @@ export default function TripDetails() {
                                       >
                                         <strong>Attraction Details</strong>
                                       </Typography>
+                                      {(item.data as any).attractionType && (
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          display="block"
+                                        >
+                                          Type:{' '}
+                                          {getAttractionTypeLabel(
+                                            (item.data as any).attractionType,
+                                            (item.data as any).customType
+                                          )}
+                                        </Typography>
+                                      )}
                                       {(item.data as any).address && (
                                         <Typography
                                           variant="caption"
@@ -2839,7 +3207,8 @@ export default function TripDetails() {
                                         color="text.secondary"
                                         display="block"
                                       >
-                                        Address: {(item.data as any).hotelAddress}
+                                        Address:{' '}
+                                        {(item.data as any).hotelAddress}
                                       </Typography>
                                       {(item.data as any).isAutoGenerated && (
                                         <Typography
@@ -2849,7 +3218,8 @@ export default function TripDetails() {
                                           fontStyle="italic"
                                           mt={0.5}
                                         >
-                                          This meal is automatically included with your hotel booking
+                                          This meal is automatically included
+                                          with your hotel booking
                                         </Typography>
                                       )}
                                     </>
@@ -3241,6 +3611,43 @@ export default function TripDetails() {
           <DialogTitle>Edit Hotel</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Search for a different hotel (optional)"
+                  placeholder="Search hotels..."
+                  value={editSearchQuery}
+                  onChange={(e) => setEditSearchQuery(e.target.value)}
+                  autoComplete="off"
+                />
+                {editSearchResults.length > 0 && (
+                  <Paper
+                    elevation={3}
+                    sx={{ mt: 1, maxHeight: 300, overflow: 'auto' }}
+                  >
+                    <Stack divider={<Divider />}>
+                      {editSearchResults.map((hotel: any) => (
+                        <Box
+                          key={hotel.placeId}
+                          onClick={() => handleEditSearchSelect(hotel)}
+                          sx={{
+                            p: 2,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: 'action.hover' },
+                          }}
+                        >
+                          <Typography variant="subtitle2" fontWeight="bold">
+                            {hotel.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {hotel.formattedAddress}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+                )}
+              </Box>
               <TextField
                 fullWidth
                 label="Hotel Name"
@@ -3291,6 +3698,23 @@ export default function TripDetails() {
                   InputLabelProps={{ shrink: true }}
                 />
               </Box>
+              <TextField
+                fullWidth
+                type="time"
+                label="Arrival Time at Hotel (optional)"
+                value={editItem.data.arrivalTime || ''}
+                onChange={(e) =>
+                  setEditItem({
+                    ...editItem,
+                    data: {
+                      ...editItem.data,
+                      arrivalTime: e.target.value || undefined,
+                    },
+                  })
+                }
+                InputLabelProps={{ shrink: true }}
+                helperText="If not specified, defaults to 15:00 (standard check-in time)"
+              />
               <Box display="flex" gap={2}>
                 <TextField
                   fullWidth
@@ -3336,6 +3760,89 @@ export default function TripDetails() {
                   inputProps={{ min: 0, max: 5, step: 0.1 }}
                 />
               </Box>
+              <Box display="flex" gap={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Meal Plan</InputLabel>
+                  <Select
+                    value={editItem.data.mealPlan || ''}
+                    label="Meal Plan"
+                    onChange={(e) =>
+                      setEditItem({
+                        ...editItem,
+                        data: {
+                          ...editItem.data,
+                          mealPlan: e.target.value || undefined,
+                        },
+                      })
+                    }
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value="breakfast">Breakfast Only</MenuItem>
+                    <MenuItem value="half-board">
+                      Half Board (Breakfast + Dinner)
+                    </MenuItem>
+                    <MenuItem value="all-inclusive">All Inclusive</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Number of Rooms"
+                  value={editItem.data.numberOfRooms || ''}
+                  onChange={(e) =>
+                    setEditItem({
+                      ...editItem,
+                      data: {
+                        ...editItem.data,
+                        numberOfRooms: Number(e.target.value) || undefined,
+                      },
+                    })
+                  }
+                  inputProps={{ min: 1 }}
+                />
+              </Box>
+              {editItem.data.numberOfRooms > 0 && (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
+                    Reservation Names (one per room):
+                  </Typography>
+                  {[...Array(editItem.data.numberOfRooms)].map((_, idx) => (
+                    <TextField
+                      key={idx}
+                      fullWidth
+                      label={`Room ${idx + 1} Reservation Name`}
+                      value={editItem.data.reservationNames?.[idx] || ''}
+                      onChange={(e) => {
+                        const names = [
+                          ...(editItem.data.reservationNames || []),
+                        ];
+                        names[idx] = e.target.value;
+                        setEditItem({
+                          ...editItem,
+                          data: { ...editItem.data, reservationNames: names },
+                        });
+                      }}
+                      sx={{ mb: 1 }}
+                    />
+                  ))}
+                </Box>
+              )}
+              <TextField
+                fullWidth
+                label="Booked From (e.g., Booking.com, Expedia)"
+                value={editItem.data.bookedFrom || ''}
+                onChange={(e) =>
+                  setEditItem({
+                    ...editItem,
+                    data: { ...editItem.data, bookedFrom: e.target.value },
+                  })
+                }
+              />
             </Stack>
           </DialogContent>
           <DialogActions>
@@ -3605,6 +4112,43 @@ export default function TripDetails() {
           <DialogTitle>Edit Attraction</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Search for a different attraction (optional)"
+                  placeholder="Search attractions..."
+                  value={editSearchQuery}
+                  onChange={(e) => setEditSearchQuery(e.target.value)}
+                  autoComplete="off"
+                />
+                {editSearchResults.length > 0 && (
+                  <Paper
+                    elevation={3}
+                    sx={{ mt: 1, maxHeight: 300, overflow: 'auto' }}
+                  >
+                    <Stack divider={<Divider />}>
+                      {editSearchResults.map((place: any) => (
+                        <Box
+                          key={place.placeId}
+                          onClick={() => handleEditSearchSelect(place)}
+                          sx={{
+                            p: 2,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: 'action.hover' },
+                          }}
+                        >
+                          <Typography variant="subtitle2" fontWeight="bold">
+                            {place.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {place.formattedAddress}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+                )}
+              </Box>
               <TextField
                 fullWidth
                 label="Attraction Name"
@@ -3627,6 +4171,45 @@ export default function TripDetails() {
                   })
                 }
               />
+              <FormControl fullWidth>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={editItem.data.attractionType || 'restaurant'}
+                  label="Type"
+                  onChange={(e) =>
+                    setEditItem({
+                      ...editItem,
+                      data: {
+                        ...editItem.data,
+                        attractionType: e.target.value,
+                      },
+                    })
+                  }
+                >
+                  <MenuItem value="restaurant">Restaurant</MenuItem>
+                  <MenuItem value="park">Park</MenuItem>
+                  <MenuItem value="show">Show</MenuItem>
+                  <MenuItem value="museum">Museum</MenuItem>
+                  <MenuItem value="event">Event</MenuItem>
+                  <MenuItem value="theme-park">Theme Park</MenuItem>
+                  <MenuItem value="water-park">Water Park</MenuItem>
+                  <MenuItem value="custom">Custom</MenuItem>
+                </Select>
+              </FormControl>
+              {editItem.data.attractionType === 'custom' && (
+                <TextField
+                  fullWidth
+                  label="Custom Type Name"
+                  placeholder="e.g., Shopping, Beach, etc."
+                  value={editItem.data.customType || ''}
+                  onChange={(e) =>
+                    setEditItem({
+                      ...editItem,
+                      data: { ...editItem.data, customType: e.target.value },
+                    })
+                  }
+                />
+              )}
               <Box display="flex" gap={2}>
                 <TextField
                   fullWidth

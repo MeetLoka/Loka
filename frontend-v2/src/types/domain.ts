@@ -34,6 +34,7 @@ export interface HotelBooking {
   numberOfRooms?: number;
   reservationNames?: string[]; // Array of names for each room
   bookedFrom?: string;
+  arrivalTime?: string; // Time of arrival at hotel (HH:MM format)
 }
 
 export interface RideLeg {
@@ -71,6 +72,16 @@ export interface AttractionVisit {
   cost?: number;
   numberOfTickets?: number;
   costType?: 'per-ticket' | 'total';
+  attractionType?:
+    | 'restaurant'
+    | 'park'
+    | 'show'
+    | 'museum'
+    | 'event'
+    | 'theme-park'
+    | 'water-park'
+    | 'custom';
+  customType?: string;
 }
 
 export interface MealActivity {
@@ -158,14 +169,21 @@ export function groupTripByDay(trip: Trip): DayBucket[] {
   // Generate meal activities based on hotel meal plans
   trip.hotels.forEach((hotel) => {
     if (hotel.includesMeals && hotel.mealPlan) {
-      const stayDates = dateRange(hotel.checkIn.slice(0, 10), hotel.checkOut.slice(0, 10));
-      
+      const stayDates = dateRange(
+        hotel.checkIn.slice(0, 10),
+        hotel.checkOut.slice(0, 10)
+      );
+
       stayDates.forEach((date, index) => {
         const isCheckInDay = index === 0;
         const isCheckOutDay = index === stayDates.length - 1;
-        
+
         // Generate meals based on meal plan
-        if (hotel.mealPlan === 'breakfast' || hotel.mealPlan === 'half-board' || hotel.mealPlan === 'all-inclusive') {
+        if (
+          hotel.mealPlan === 'breakfast' ||
+          hotel.mealPlan === 'half-board' ||
+          hotel.mealPlan === 'all-inclusive'
+        ) {
           // Breakfast - SKIP on check-in day (arriving), INCLUDE on checkout day
           if (!isCheckInDay) {
             add(date, 'meals', {
@@ -178,7 +196,7 @@ export function groupTripByDay(trip: Trip): DayBucket[] {
             } as MealActivity);
           }
         }
-        
+
         if (hotel.mealPlan === 'all-inclusive') {
           // Lunch - skip on check-in and checkout days
           if (!isCheckInDay && !isCheckOutDay) {
@@ -192,8 +210,11 @@ export function groupTripByDay(trip: Trip): DayBucket[] {
             } as MealActivity);
           }
         }
-        
-        if (hotel.mealPlan === 'half-board' || hotel.mealPlan === 'all-inclusive') {
+
+        if (
+          hotel.mealPlan === 'half-board' ||
+          hotel.mealPlan === 'all-inclusive'
+        ) {
           // Dinner - skip on checkout day (leaving), include on check-in and other days
           if (!isCheckOutDay) {
             add(date, 'meals', {

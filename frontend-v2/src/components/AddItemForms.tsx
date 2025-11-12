@@ -45,28 +45,45 @@ import {
  * Handles formats like "2025-11-13 10:20+04:00" or "2025-11-13T10:20:00+04:00"
  * Returns the time and date in the original timezone, not converted to user's local time.
  */
-function formatDateTimeLocal(dateTimeStr: string): { date: string; time: string; full: string } {
+function formatDateTimeLocal(dateTimeStr: string): {
+  date: string;
+  time: string;
+  full: string;
+} {
   if (!dateTimeStr) return { date: '', time: '', full: '' };
-  
+
   // Handle both ISO format (2025-11-13T10:20:00+04:00) and space format (2025-11-13 10:20+04:00)
   const parts = dateTimeStr.includes('T')
     ? dateTimeStr.split('T')
     : dateTimeStr.split(' ');
-  
+
   const datePart = parts[0]; // "2025-11-13"
   const timePart = parts[1]?.split(/[+-]/)[0] || ''; // "10:20:00" or "10:20"
   const timeOnly = timePart.slice(0, 5); // "10:20"
-  
+
   // Format full datetime for display (date + time, no timezone conversion)
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const [year, month, day] = datePart.split('-');
   const formattedDate = `${monthNames[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
   const formattedTime = timeOnly;
-  
+
   return {
     date: datePart,
     time: timeOnly,
-    full: `${formattedDate} ${formattedTime}`
+    full: `${formattedDate} ${formattedTime}`,
   };
 }
 
@@ -464,10 +481,18 @@ export function AddFlightForm({
                         <Box textAlign="right">
                           <Typography variant="body2">
                             {(() => {
-                              const depDateTime = flight.departure?.scheduled || flight.departureDateTime;
-                              const arrDateTime = flight.arrival?.scheduled || flight.arrivalDateTime;
-                              const depTime = depDateTime ? formatDateTimeLocal(depDateTime).time : '--:--';
-                              const arrTime = arrDateTime ? formatDateTimeLocal(arrDateTime).time : '--:--';
+                              const depDateTime =
+                                flight.departure?.scheduled ||
+                                flight.departureDateTime;
+                              const arrDateTime =
+                                flight.arrival?.scheduled ||
+                                flight.arrivalDateTime;
+                              const depTime = depDateTime
+                                ? formatDateTimeLocal(depDateTime).time
+                                : '--:--';
+                              const arrTime = arrDateTime
+                                ? formatDateTimeLocal(arrDateTime).time
+                                : '--:--';
                               return `${depTime} - ${arrTime}`;
                             })()}
                           </Typography>
@@ -629,10 +654,12 @@ export function AddFlightForm({
                         (flightData || selectedFlight).departure?.iata}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {formatDateTimeLocal(
-                        (flightData || selectedFlight).departureDateTime ||
-                          (flightData || selectedFlight).departure?.scheduled
-                      ).full}
+                      {
+                        formatDateTimeLocal(
+                          (flightData || selectedFlight).departureDateTime ||
+                            (flightData || selectedFlight).departure?.scheduled
+                        ).full
+                      }
                     </Typography>
                     {((flightData || selectedFlight).terminal?.departure ||
                       (flightData || selectedFlight).departure?.terminal) && (
@@ -672,10 +699,12 @@ export function AddFlightForm({
                         (flightData || selectedFlight).arrival?.iata}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {formatDateTimeLocal(
-                        (flightData || selectedFlight).arrivalDateTime ||
-                          (flightData || selectedFlight).arrival?.scheduled
-                      ).full}
+                      {
+                        formatDateTimeLocal(
+                          (flightData || selectedFlight).arrivalDateTime ||
+                            (flightData || selectedFlight).arrival?.scheduled
+                        ).full
+                      }
                     </Typography>
                     {((flightData || selectedFlight).terminal?.arrival ||
                       (flightData || selectedFlight).arrival?.terminal) && (
@@ -969,10 +998,13 @@ export function AddHotelForm({
   const [hotelDetail, setHotelDetail] = useState<any | null>(null);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const [arrivalTime, setArrivalTime] = useState('');
   const [nights, setNights] = useState('');
   const [cost, setCost] = useState('');
   const [includesMeals, setIncludesMeals] = useState(false);
-  const [mealPlan, setMealPlan] = useState<'breakfast' | 'half-board' | 'all-inclusive'>('breakfast');
+  const [mealPlan, setMealPlan] = useState<
+    'breakfast' | 'half-board' | 'all-inclusive'
+  >('breakfast');
   const [numberOfRooms, setNumberOfRooms] = useState('');
   const [reservationNames, setReservationNames] = useState<string[]>(['']);
   const [bookedFrom, setBookedFrom] = useState('');
@@ -984,7 +1016,7 @@ export function AddHotelForm({
   useEffect(() => {
     const numRooms = parseInt(numberOfRooms) || 1;
     if (numRooms > 0) {
-      setReservationNames(prev => {
+      setReservationNames((prev) => {
         const newArray = Array(numRooms).fill('');
         // Preserve existing values
         for (let i = 0; i < Math.min(prev.length, numRooms); i++) {
@@ -1061,15 +1093,17 @@ export function AddHotelForm({
         address: hotelDetail?.formattedAddress || selected.formattedAddress,
         checkIn,
         checkOut,
+        arrivalTime: arrivalTime || undefined,
         nights: nights ? Number(nights) : undefined,
         cost: cost ? Number(cost) : undefined,
         rating: hotelDetail?.rating || null,
         includesMeals: includesMeals,
         mealPlan: includesMeals ? mealPlan : undefined,
         numberOfRooms: numberOfRooms ? Number(numberOfRooms) : undefined,
-        reservationNames: reservationNames.filter(name => name.trim() !== '').length > 0 
-          ? reservationNames.filter(name => name.trim() !== '') 
-          : undefined,
+        reservationNames:
+          reservationNames.filter((name) => name.trim() !== '').length > 0
+            ? reservationNames.filter((name) => name.trim() !== '')
+            : undefined,
         bookedFrom: bookedFrom || undefined,
       };
       const updated = await addHotelToTrip(tripId, hotelPayload as any);
@@ -1080,6 +1114,7 @@ export function AddHotelForm({
       setHotelDetail(null);
       setCheckIn('');
       setCheckOut('');
+      setArrivalTime('');
       setNights('');
       setCost('');
       setIncludesMeals(false);
@@ -1262,6 +1297,17 @@ export function AddHotelForm({
                     <Grid item xs={6}>
                       <TextField
                         fullWidth
+                        type="time"
+                        label="Arrival Time (optional)"
+                        value={arrivalTime}
+                        onChange={(e) => setArrivalTime(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        helperText="Defaults to 15:00 if not specified"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        fullWidth
                         label="Nights"
                         type="number"
                         value={nights}
@@ -1299,7 +1345,9 @@ export function AddHotelForm({
                     {includesMeals && (
                       <Grid item xs={12}>
                         <FormControl fullWidth>
-                          <InputLabel id="meal-plan-label">Meal Plan</InputLabel>
+                          <InputLabel id="meal-plan-label">
+                            Meal Plan
+                          </InputLabel>
                           <Select
                             labelId="meal-plan-label"
                             value={mealPlan}
@@ -1307,15 +1355,23 @@ export function AddHotelForm({
                             onChange={(e) => setMealPlan(e.target.value as any)}
                           >
                             <MenuItem value="breakfast">Breakfast</MenuItem>
-                            <MenuItem value="half-board">Half-Board (Breakfast + Dinner)</MenuItem>
-                            <MenuItem value="all-inclusive">All-Inclusive (Breakfast + Lunch + Dinner)</MenuItem>
+                            <MenuItem value="half-board">
+                              Half-Board (Breakfast + Dinner)
+                            </MenuItem>
+                            <MenuItem value="all-inclusive">
+                              All-Inclusive (Breakfast + Lunch + Dinner)
+                            </MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
                     )}
                     <Grid item xs={12}>
                       <Divider sx={{ my: 1 }} />
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 1, display: 'block' }}
+                      >
                         Additional Booking Information
                       </Typography>
                     </Grid>
@@ -1334,7 +1390,8 @@ export function AddHotelForm({
                       <>
                         <Grid item xs={12}>
                           <Typography variant="caption" color="text.secondary">
-                            Reservation Names ({parseInt(numberOfRooms)} room{parseInt(numberOfRooms) > 1 ? 's' : ''})
+                            Reservation Names ({parseInt(numberOfRooms)} room
+                            {parseInt(numberOfRooms) > 1 ? 's' : ''})
                           </Typography>
                         </Grid>
                         {reservationNames.map((name, index) => (
@@ -2039,6 +2096,17 @@ export function AddAttractionForm({
   const [cost, setCost] = useState('');
   const [numberOfTickets, setNumberOfTickets] = useState('');
   const [costType, setCostType] = useState<'per-ticket' | 'total'>('total');
+  const [attractionType, setAttractionType] = useState<
+    | 'restaurant'
+    | 'park'
+    | 'show'
+    | 'museum'
+    | 'event'
+    | 'theme-park'
+    | 'water-park'
+    | 'custom'
+  >('restaurant');
+  const [customType, setCustomType] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -2067,6 +2135,7 @@ export function AddAttractionForm({
   // Fetch place details when selected
   async function handleSelectPlace(place: any) {
     setSel(place);
+    setSearchResults([]); // Clear search results after selection
     setLoadingDetails(true);
     try {
       const det = await placeDetails(place.placeId);
@@ -2094,6 +2163,8 @@ export function AddAttractionForm({
         cost: cost ? Number(cost) : undefined,
         numberOfTickets: numberOfTickets ? Number(numberOfTickets) : undefined,
         costType: costType,
+        attractionType: attractionType,
+        customType: attractionType === 'custom' ? customType : undefined,
       };
       const updated = await addAttractionToTrip(tripId, payload as any);
       onUpdated(updated);
@@ -2106,6 +2177,8 @@ export function AddAttractionForm({
       setCost('');
       setNumberOfTickets('');
       setCostType('total');
+      setAttractionType('restaurant');
+      setCustomType('');
       onDone?.();
     } catch (e: any) {
       setErr(e?.response?.data?.message || e.message);
@@ -2260,6 +2333,40 @@ export function AddAttractionForm({
                     Visit Details
                   </Typography>
                   <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <FormControl fullWidth>
+                        <InputLabel id="attraction-type-label">Type</InputLabel>
+                        <Select
+                          labelId="attraction-type-label"
+                          value={attractionType}
+                          label="Type"
+                          onChange={(e) =>
+                            setAttractionType(e.target.value as any)
+                          }
+                        >
+                          <MenuItem value="restaurant">Restaurant</MenuItem>
+                          <MenuItem value="park">Park</MenuItem>
+                          <MenuItem value="show">Show</MenuItem>
+                          <MenuItem value="museum">Museum</MenuItem>
+                          <MenuItem value="event">Event</MenuItem>
+                          <MenuItem value="theme-park">Theme Park</MenuItem>
+                          <MenuItem value="water-park">Water Park</MenuItem>
+                          <MenuItem value="custom">Custom</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    {attractionType === 'custom' && (
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Custom Type Name"
+                          placeholder="e.g., Shopping, Beach, etc."
+                          value={customType}
+                          onChange={(e) => setCustomType(e.target.value)}
+                          required
+                        />
+                      </Grid>
+                    )}
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth

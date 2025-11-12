@@ -106,7 +106,7 @@ export default function GenerateRide({
     trip.hotels.forEach((hotel, idx) => {
       const checkInDate = new Date(hotel.checkIn.split('T')[0]);
       const checkOutDate = new Date(hotel.checkOut.split('T')[0]);
-      
+
       // Generate all dates in the stay range
       const currentDate = new Date(checkInDate);
       let dayIndex = 0;
@@ -140,8 +140,23 @@ export default function GenerateRide({
 
     // Auto-select initial locations if provided
     if (initialSelection && initialSelection.length === 2) {
-      const startId = `${initialSelection[0].type}-${initialSelection[0].index}`;
-      const endId = `${initialSelection[1].type}-${initialSelection[1].index}`;
+      let startId = `${initialSelection[0].type}-${initialSelection[0].index}`;
+      let endId = `${initialSelection[1].type}-${initialSelection[1].index}`;
+
+      // For hotels, if the simple ID doesn't exist, try with day-0 suffix
+      if (
+        initialSelection[0].type === 'hotel' &&
+        !tripLocations.find((l) => l.id === startId)
+      ) {
+        startId = `hotel-${initialSelection[0].index}-day-0`;
+      }
+      if (
+        initialSelection[1].type === 'hotel' &&
+        !tripLocations.find((l) => l.id === endId)
+      ) {
+        endId = `hotel-${initialSelection[1].index}-day-0`;
+      }
+
       setStartLocation(startId);
       setEndLocation(endId);
 
