@@ -65,6 +65,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -91,6 +92,7 @@ import {
   ExpandLess,
   Share as ShareIcon,
   Visibility as VisibilityIcon,
+  BarChart as GanttIcon,
 } from '@mui/icons-material';
 
 // Helper function to get attraction type label
@@ -117,9 +119,10 @@ function getAttractionTypeLabel(type?: string, customType?: string): string {
   }
 }
 import ShareTripDialog from '../components/ShareTripDialog';
+import { format, parseISO } from 'date-fns';
 
 type FilterCategory = 'all' | 'flights' | 'hotels' | 'rides' | 'attractions';
-type ViewMode = 'list' | 'timeline' | 'map';
+type ViewMode = 'list' | 'timeline' | 'map' | 'gantt';
 
 // Small embedded map component for ride routes
 function RideMapEmbed({ ride }: { ride: any }) {
@@ -543,6 +546,48 @@ export default function TripDetails() {
     const datePart = parts[0];
     const timePart = parts[1]?.slice(0, 5) || '00:00';
     return `${datePart}T${timePart}`;
+  };
+
+  // Helper function to calculate arrival time for rides
+  const calculateRideArrivalTime = (
+    pickupTime: string,
+    duration: string
+  ): string => {
+    if (!pickupTime || !duration) return '';
+
+    // Parse pickup time (HH:MM format)
+    const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
+
+    // Parse duration (e.g., "30 min", "1 hour 15 min", "45 mins")
+    let durationMinutes = 0;
+    const durationLower = duration.toLowerCase();
+
+    // Extract hours
+    const hourMatch = durationLower.match(/(\d+)\s*h(our|r)?/);
+    if (hourMatch) {
+      durationMinutes += parseInt(hourMatch[1]) * 60;
+    }
+
+    // Extract minutes
+    const minMatch = durationLower.match(/(\d+)\s*min/);
+    if (minMatch) {
+      durationMinutes += parseInt(minMatch[1]);
+    }
+
+    // Calculate arrival time
+    let arrivalHour = pickupHour;
+    let arrivalMinute = pickupMinute + durationMinutes;
+
+    while (arrivalMinute >= 60) {
+      arrivalMinute -= 60;
+      arrivalHour += 1;
+    }
+
+    while (arrivalHour >= 24) {
+      arrivalHour -= 24;
+    }
+
+    return `${arrivalHour.toString().padStart(2, '0')}:${arrivalMinute.toString().padStart(2, '0')}`;
   };
 
   const handleDeleteTrip = async () => {
@@ -1019,6 +1064,8 @@ export default function TripDetails() {
                 onClick={() => setViewMode('map')}
                 sx={{
                   borderRadius: 0,
+                  borderRight: '1px solid',
+                  borderColor: 'divider',
                   bgcolor: viewMode === 'map' ? 'primary.main' : 'transparent',
                   color: viewMode === 'map' ? 'white' : 'text.primary',
                   '&:hover': {
@@ -1028,6 +1075,23 @@ export default function TripDetails() {
                 }}
               >
                 Map
+              </Button>
+              <Button
+                size="small"
+                startIcon={<GanttIcon />}
+                onClick={() => setViewMode('gantt')}
+                sx={{
+                  borderRadius: 0,
+                  bgcolor:
+                    viewMode === 'gantt' ? 'primary.main' : 'transparent',
+                  color: viewMode === 'gantt' ? 'white' : 'text.primary',
+                  '&:hover': {
+                    bgcolor:
+                      viewMode === 'gantt' ? 'primary.dark' : 'action.hover',
+                  },
+                }}
+              >
+                Gantt
               </Button>
             </Stack>
           </Paper>
@@ -2613,6 +2677,19 @@ export default function TripDetails() {
                                           {(item.data as any).pickup} →{' '}
                                           {(item.data as any).dropoff}
                                         </Typography>
+                                        {item.time &&
+                                          (item.data as any).duration && (
+                                            <Typography
+                                              variant="body2"
+                                              color="text.secondary"
+                                            >
+                                              Pickup {item.time} → Arrival{' '}
+                                              {calculateRideArrivalTime(
+                                                item.time,
+                                                (item.data as any).duration
+                                              )}
+                                            </Typography>
+                                          )}
                                         {(item.data as any).distance && (
                                           <Typography
                                             variant="body2"
@@ -3410,6 +3487,681 @@ export default function TripDetails() {
 
       {/* MAP VIEW */}
       {viewMode === 'map' && <TripMapView trip={trip} />}
+
+      {/* GANTT VIEW */}
+      {viewMode === 'gantt' && (
+        <Box sx={{ width: '100%' }}>
+          <Card sx={{ mb: 3, p: 2 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Typography variant="h5" fontWeight={600}>
+                📊 Trip Gantt Chart
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Chip
+                  icon={<FlightIcon />}
+                  label="Flights"
+                  size="small"
+                  sx={{ bgcolor: '#1976d2', color: 'white' }}
+                />
+                <Chip
+                  icon={<HotelIcon />}
+                  label="Hotels"
+                  size="small"
+                  sx={{ bgcolor: '#9c27b0', color: 'white' }}
+                />
+                <Chip
+                  icon={<DirectionsCar />}
+                  label="Rides"
+                  size="small"
+                  sx={{ bgcolor: '#0288d1', color: 'white' }}
+                />
+                <Chip
+                  icon={<AttractionsOutlined />}
+                  label="Activities"
+                  size="small"
+                  sx={{ bgcolor: '#2e7d32', color: 'white' }}
+                />
+                <Chip
+                  icon={<RestaurantIcon />}
+                  label="Meals"
+                  size="small"
+                  sx={{ bgcolor: '#ed6c02', color: 'white' }}
+                />
+              </Stack>
+            </Stack>
+          </Card>
+
+          <Card sx={{ p: 2 }}>
+            <Box sx={{ width: '100%', overflowX: 'auto', overflowY: 'visible' }}>
+              {(() => {
+                // Calculate trip duration in days
+                const startDate = new Date(trip.startDate);
+                const endDate = new Date(trip.endDate);
+                const totalDays =
+                  Math.ceil(
+                    (endDate.getTime() - startDate.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  ) + 1;
+
+                // Helper function to calculate position percentage
+                const getPositionAndWidth = (
+                  itemStartDate: string,
+                  itemStartTime: string,
+                  itemEndDate?: string,
+                  itemEndTime?: string
+                ) => {
+                  const tripStart = new Date(trip.startDate).getTime();
+                  const tripDuration =
+                    new Date(trip.endDate).getTime() - tripStart + 86400000; // +1 day in ms
+
+                  // Parse start
+                  const [startHour, startMin] = itemStartTime.split(':').map(Number);
+                  const startDateTime =
+                    new Date(itemStartDate).getTime() +
+                    startHour * 3600000 +
+                    startMin * 60000;
+
+                  const leftPercent =
+                    ((startDateTime - tripStart) / tripDuration) * 100;
+
+                  // Parse end
+                  let widthPercent = 2; // Minimum width for point events
+                  if (itemEndDate && itemEndTime) {
+                    const [endHour, endMin] = itemEndTime.split(':').map(Number);
+                    const endDateTime =
+                      new Date(itemEndDate).getTime() +
+                      endHour * 3600000 +
+                      endMin * 60000;
+                    widthPercent = Math.max(
+                      ((endDateTime - startDateTime) / tripDuration) * 100,
+                      2
+                    );
+                  }
+
+                  return { left: leftPercent, width: widthPercent };
+                };
+
+                // Collect all items by category
+                const flights = trip.flights.map((f) => ({
+                  ...f,
+                  startDate: f.departureDateTime.split('T')[0] || f.departureDateTime.split(' ')[0],
+                  startTime: extractTime(f.departureDateTime),
+                  endDate: f.arrivalDateTime.split('T')[0] || f.arrivalDateTime.split(' ')[0],
+                  endTime: extractTime(f.arrivalDateTime),
+                  label: `${f.airline || ''} ${f.flightNumber || ''} | ${f.departureAirportCode} → ${f.arrivalAirportCode}`,
+                }));
+
+                const hotels = trip.hotels.map((h) => ({
+                  ...h,
+                  startDate: h.checkIn,
+                  startTime: '15:00',
+                  endDate: h.checkOut,
+                  endTime: '12:00',
+                  label: `${h.name}`,
+                }));
+
+                const rides = trip.rides.map((r) => {
+                  const date = r.date || trip.startDate;
+                  const pickupTime = r.time || '09:00';
+                  const arrivalTime = calculateRideArrivalTime(
+                    pickupTime,
+                    r.duration || ''
+                  );
+                  return {
+                    ...r,
+                    startDate: date,
+                    startTime: pickupTime,
+                    endDate: date,
+                    endTime: arrivalTime,
+                    label: `${r.pickup} → ${r.dropoff}`,
+                  };
+                });
+
+                const activities = trip.attractions.map((a) => {
+                  const time = a.scheduledTime || '10:00';
+                  return {
+                    ...a,
+                    startDate: a.scheduledDate,
+                    startTime: time,
+                    endDate: a.scheduledDate,
+                    endTime: time,
+                    label: a.name,
+                  };
+                });
+
+                return (
+                  <Box sx={{ minWidth: 800 }}>
+                    {/* Timeline Header - Days */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        mb: 2,
+                        pb: 1,
+                        borderBottom: '2px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      {/* Category label column */}
+                      <Box sx={{ width: 150, flexShrink: 0 }} />
+
+                      {/* Days timeline */}
+                      <Box sx={{ flex: 1, display: 'flex', position: 'relative' }}>
+                        {Array.from({ length: totalDays }, (_, i) => {
+                          const dayDate = new Date(startDate);
+                          dayDate.setDate(dayDate.getDate() + i);
+                          const [year, month, day] = dayDate
+                            .toISOString()
+                            .split('T')[0]
+                            .split('-');
+                          return (
+                            <Box
+                              key={i}
+                              sx={{
+                                flex: 1,
+                                textAlign: 'center',
+                                borderLeft: '1px solid',
+                                borderColor: 'divider',
+                                px: 0.5,
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                fontWeight={600}
+                                color="primary"
+                              >
+                                Day {i + 1}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                color="text.secondary"
+                                sx={{ fontSize: '0.65rem' }}
+                              >
+                                {day}/{month}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+
+                    {/* FLIGHTS ROW */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        minHeight: 60,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {/* Category Label */}
+                      <Box
+                        sx={{
+                          width: 150,
+                          flexShrink: 0,
+                          pr: 2,
+                          borderRight: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <FlightIcon fontSize="small" sx={{ color: '#1976d2' }} />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            ✈️ Flights
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      {/* Timeline Row */}
+                      <Box
+                        sx={{
+                          flex: 1,
+                          position: 'relative',
+                          height: 50,
+                          ml: 2,
+                        }}
+                      >
+                        {/* Grid lines */}
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                          }}
+                        >
+                          {Array.from({ length: totalDays }, (_, i) => (
+                            <Box
+                              key={i}
+                              sx={{
+                                flex: 1,
+                                borderLeft: '1px solid',
+                                borderColor: 'divider',
+                                opacity: 0.2,
+                              }}
+                            />
+                          ))}
+                        </Box>
+
+                        {/* Flight bars */}
+                        {flights.map((flight, idx) => {
+                          const pos = getPositionAndWidth(
+                            flight.startDate,
+                            flight.startTime,
+                            flight.endDate,
+                            flight.endTime
+                          );
+                          return (
+                            <Tooltip
+                              key={idx}
+                              title={
+                                <Box>
+                                  <Typography variant="body2" fontWeight="bold">
+                                    {flight.label}
+                                  </Typography>
+                                  <Typography variant="caption">
+                                    {flight.startTime} → {flight.endTime}
+                                  </Typography>
+                                </Box>
+                              }
+                            >
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  left: `${pos.left}%`,
+                                  width: `${pos.width}%`,
+                                  top: 8,
+                                  height: 34,
+                                  bgcolor: '#1976d2',
+                                  borderRadius: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  overflow: 'hidden',
+                                  boxShadow: 2,
+                                  '&:hover': {
+                                    boxShadow: 4,
+                                    zIndex: 10,
+                                  },
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  noWrap
+                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                >
+                                  {flight.flightNumber}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+
+                    {/* HOTELS ROW */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        minHeight: 60,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 150,
+                          flexShrink: 0,
+                          pr: 2,
+                          borderRight: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <HotelIcon fontSize="small" sx={{ color: '#9c27b0' }} />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            🏨 Hotels
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          flex: 1,
+                          position: 'relative',
+                          height: 50,
+                          ml: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                          }}
+                        >
+                          {Array.from({ length: totalDays }, (_, i) => (
+                            <Box
+                              key={i}
+                              sx={{
+                                flex: 1,
+                                borderLeft: '1px solid',
+                                borderColor: 'divider',
+                                opacity: 0.2,
+                              }}
+                            />
+                          ))}
+                        </Box>
+
+                        {hotels.map((hotel, idx) => {
+                          const pos = getPositionAndWidth(
+                            hotel.startDate,
+                            hotel.startTime,
+                            hotel.endDate,
+                            hotel.endTime
+                          );
+                          return (
+                            <Tooltip
+                              key={idx}
+                              title={
+                                <Box>
+                                  <Typography variant="body2" fontWeight="bold">
+                                    {hotel.label}
+                                  </Typography>
+                                  <Typography variant="caption">
+                                    {hotel.checkIn} → {hotel.checkOut}
+                                  </Typography>
+                                </Box>
+                              }
+                            >
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  left: `${pos.left}%`,
+                                  width: `${pos.width}%`,
+                                  top: 8,
+                                  height: 34,
+                                  bgcolor: '#9c27b0',
+                                  borderRadius: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  overflow: 'hidden',
+                                  boxShadow: 2,
+                                  '&:hover': {
+                                    boxShadow: 4,
+                                    zIndex: 10,
+                                  },
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  noWrap
+                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                >
+                                  {hotel.name}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+
+                    {/* RIDES ROW */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        minHeight: 60,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 150,
+                          flexShrink: 0,
+                          pr: 2,
+                          borderRight: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <DirectionsCar fontSize="small" sx={{ color: '#0288d1' }} />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            🚗 Rides
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          flex: 1,
+                          position: 'relative',
+                          height: 50,
+                          ml: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                          }}
+                        >
+                          {Array.from({ length: totalDays }, (_, i) => (
+                            <Box
+                              key={i}
+                              sx={{
+                                flex: 1,
+                                borderLeft: '1px solid',
+                                borderColor: 'divider',
+                                opacity: 0.2,
+                              }}
+                            />
+                          ))}
+                        </Box>
+
+                        {rides.map((ride, idx) => {
+                          const pos = getPositionAndWidth(
+                            ride.startDate,
+                            ride.startTime,
+                            ride.endDate,
+                            ride.endTime
+                          );
+                          return (
+                            <Tooltip
+                              key={idx}
+                              title={
+                                <Box>
+                                  <Typography variant="body2" fontWeight="bold">
+                                    {ride.label}
+                                  </Typography>
+                                  <Typography variant="caption">
+                                    {ride.startTime} → {ride.endTime}
+                                  </Typography>
+                                </Box>
+                              }
+                            >
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  left: `${pos.left}%`,
+                                  width: `${pos.width}%`,
+                                  top: 8,
+                                  height: 34,
+                                  bgcolor: '#0288d1',
+                                  borderRadius: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  overflow: 'hidden',
+                                  boxShadow: 2,
+                                  '&:hover': {
+                                    boxShadow: 4,
+                                    zIndex: 10,
+                                  },
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  noWrap
+                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                >
+                                  Ride
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+
+                    {/* ACTIVITIES & MEALS ROW */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        minHeight: 60,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 150,
+                          flexShrink: 0,
+                          pr: 2,
+                          borderRight: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <AttractionsOutlined
+                            fontSize="small"
+                            sx={{ color: '#2e7d32' }}
+                          />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            🎟️ Activities
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          flex: 1,
+                          position: 'relative',
+                          height: 50,
+                          ml: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                          }}
+                        >
+                          {Array.from({ length: totalDays }, (_, i) => (
+                            <Box
+                              key={i}
+                              sx={{
+                                flex: 1,
+                                borderLeft: '1px solid',
+                                borderColor: 'divider',
+                                opacity: 0.2,
+                              }}
+                            />
+                          ))}
+                        </Box>
+
+                        {activities.map((activity, idx) => {
+                          const pos = getPositionAndWidth(
+                            activity.startDate,
+                            activity.startTime,
+                            activity.endDate,
+                            activity.endTime
+                          );
+                          return (
+                            <Tooltip
+                              key={idx}
+                              title={
+                                <Box>
+                                  <Typography variant="body2" fontWeight="bold">
+                                    {activity.label}
+                                  </Typography>
+                                  <Typography variant="caption">
+                                    {activity.startTime}
+                                  </Typography>
+                                </Box>
+                              }
+                            >
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  left: `${pos.left}%`,
+                                  width: `${pos.width}%`,
+                                  top: 8,
+                                  height: 34,
+                                  bgcolor: '#2e7d32',
+                                  borderRadius: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  overflow: 'hidden',
+                                  boxShadow: 2,
+                                  '&:hover': {
+                                    boxShadow: 4,
+                                    zIndex: 10,
+                                  },
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  noWrap
+                                  sx={{ px: 1, fontSize: '0.7rem', fontWeight: 600 }}
+                                >
+                                  {activity.name}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  </Box>
+                );
+              })()}
+            </Box>
+          </Card>
+        </Box>
+      )}
 
       {/* Floating Action Button for Create Ride from Selection */}
       {selectedItems.length === 2 && (
