@@ -15,6 +15,7 @@ import {
 import { Flight, Dashboard, Logout } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
+import CloudsBackground from './CloudsBackground';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -37,6 +38,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Cloud background sits behind the whole layout. You can tweak count/opacity here. */}
+      <CloudsBackground count={50} />
       <AppBar
         position="static"
         elevation={1}

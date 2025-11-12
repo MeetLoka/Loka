@@ -5,28 +5,58 @@
 /* Avoid global SVG rules */
 
 :root {
-	--color-black: #001a16;
-	--color-white: #f1fffd;
-	--color-primary: #009d85;
-	--color-bg: var(--color-white);
+  --color-black: #001a16;
+  --color-white: #f1fffd;
+  --color-primary: #009d85;
+  --color-bg: var(--color-white);
 }
 
 /* App background and default text color */
 html,
 body,
 #root {
-	background-color: var(--color-bg);
-	color: var(--color-black);
+  background-color: var(--color-bg);
+  color: var(--color-black);
+}
+
+/* Cloud background styles */
+.clouds-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0; /* stay behind app UI */
+}
+
+.cloud {
+  position: absolute;
+  will-change: transform, opacity;
+  transform-origin: center;
+  opacity: 0.85;
+  transition: opacity 0.2s linear;
+  /* use the drift animation which translates left across the screen */
+  animation-name: cloud-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-250vw);
+  }
 }
 
 /* Default button style: bg primary, text white as requested */
 button,
 .btn {
-	background-color: var(--color-primary);
-	color: var(--color-white);
-	border: none;
-	border-radius: 0.5rem;
-	padding: 0.5rem 1rem;
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
 }
 
 /* Utility text classes to follow your rules:
@@ -35,17 +65,17 @@ button,
 	 - .text-on-primary: text to place on primary backgrounds (white)
 */
 .text-important {
-	color: var(--color-primary);
+  color: var(--color-primary);
 }
 .text-default {
-	color: var(--color-black);
+  color: var(--color-black);
 }
 .text-on-primary {
-	color: var(--color-white);
+  color: var(--color-white);
 }
 
 /* helper: primary background block */
 .bg-primary {
-	background-color: var(--color-primary);
-	color: var(--color-white);
+  background-color: var(--color-primary);
+  color: var(--color-white);
 }

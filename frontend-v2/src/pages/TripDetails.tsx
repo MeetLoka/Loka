@@ -847,7 +847,7 @@ export default function TripDetails() {
   }));
 
   return (
-    <Box>
+    <Box zIndex={1}>
       {/* Header Section */}
       <Paper
         elevation={0}
