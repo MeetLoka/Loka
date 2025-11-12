@@ -1,136 +1,146 @@
-import express from 'express'
-import { getDatabase } from '../config/database.js'
-import { memoryStore } from '../config/memoryStore.js'
-import { verifyGoogleToken } from '../middleware/auth.js'
+import express from "express";
+import { getDatabase } from "../config/database.js";
+import { memoryStore } from "../config/memoryStore.js";
+import { verifyGoogleToken } from "../middleware/auth.js";
 
-const router = express.Router()
+const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(verifyGoogleToken)
+router.use(verifyGoogleToken);
 
 // Get trips collection (MongoDB or fallback to memory)
 function getTripsCollection() {
-  const db = getDatabase()
-  return db ? db.collection('trips') : null
+  const db = getDatabase();
+  return db ? db.collection("trips") : null;
 }
 
 // Helpers
 async function getTripOr404(req, res) {
-  const collection = getTripsCollection()
-  
-  let trip
+  const collection = getTripsCollection();
+
+  let trip;
   if (collection) {
     // Use MongoDB - filter by userId
-    trip = await collection.findOne({ id: req.params.id, userId: req.user.id })
+    trip = await collection.findOne({ id: req.params.id, userId: req.user.id });
   } else {
     // Fallback to memory store
-    trip = memoryStore.trips.findById(req.params.id)
+    trip = memoryStore.trips.findById(req.params.id);
     if (trip && trip.userId !== req.user.id) {
-      trip = null
+      trip = null;
     }
   }
-  
+
   if (!trip) {
-    res.status(404).json({ error: 'Trip not found' })
-    return null
+    res.status(404).json({ error: "Trip not found" });
+    return null;
   }
   // Ensure arrays exist
-  trip.flights = Array.isArray(trip.flights) ? trip.flights : []
-  trip.hotels = Array.isArray(trip.hotels) ? trip.hotels : []
-  trip.rides = Array.isArray(trip.rides) ? trip.rides : []
-  trip.attractions = Array.isArray(trip.attractions) ? trip.attractions : []
-  return trip
+  trip.flights = Array.isArray(trip.flights) ? trip.flights : [];
+  trip.hotels = Array.isArray(trip.hotels) ? trip.hotels : [];
+  trip.rides = Array.isArray(trip.rides) ? trip.rides : [];
+  trip.attractions = Array.isArray(trip.attractions) ? trip.attractions : [];
+  return trip;
 }
 
 // Get all trips for the authenticated user (owned + shared)
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const collection = getTripsCollection()
-    
-    let trips
+    const collection = getTripsCollection();
+
+    let trips;
     if (collection) {
       // Use MongoDB - get owned trips and trips shared with user
-      const ownedTrips = await collection.find({ userId: req.user.id }).sort({ createdAt: -1 }).toArray()
-      const sharedTrips = await collection.find({ 
-        'sharedWith.userId': req.user.id 
-      }).sort({ createdAt: -1 }).toArray()
-      
+      const ownedTrips = await collection
+        .find({ userId: req.user.id })
+        .sort({ createdAt: -1 })
+        .toArray();
+      const sharedTrips = await collection
+        .find({
+          "sharedWith.userId": req.user.id,
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+
       // Mark shared trips with isShared flag
-      sharedTrips.forEach(trip => {
-        trip.isShared = true
-        trip.isOwner = false
-      })
-      
+      sharedTrips.forEach((trip) => {
+        trip.isShared = true;
+        trip.isOwner = false;
+      });
+
       // Mark owned trips
-      ownedTrips.forEach(trip => {
-        trip.isShared = false
-        trip.isOwner = true
-      })
-      
-      trips = [...ownedTrips, ...sharedTrips]
+      ownedTrips.forEach((trip) => {
+        trip.isShared = false;
+        trip.isOwner = true;
+      });
+
+      trips = [...ownedTrips, ...sharedTrips];
     } else {
       // Fallback to memory store
-      trips = memoryStore.trips.find().filter(t => 
-        t.userId === req.user.id || 
-        (t.sharedWith && t.sharedWith.some(s => s.userId === req.user.id))
-      )
-      trips.forEach(trip => {
-        trip.isOwner = trip.userId === req.user.id
-        trip.isShared = !trip.isOwner
-      })
+      trips = memoryStore.trips
+        .find()
+        .filter(
+          (t) =>
+            t.userId === req.user.id ||
+            (t.sharedWith && t.sharedWith.some((s) => s.userId === req.user.id))
+        );
+      trips.forEach((trip) => {
+        trip.isOwner = trip.userId === req.user.id;
+        trip.isShared = !trip.isOwner;
+      });
     }
-    
-    res.json(trips)
+
+    res.json(trips);
   } catch (error) {
-    console.error('Error fetching trips:', error)
-    res.status(500).json({ error: 'Failed to fetch trips' })
+    console.error("Error fetching trips:", error);
+    res.status(500).json({ error: "Failed to fetch trips" });
   }
-})
+});
 
 // Get a single trip by ID
-router.get('/:id', async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const collection = getTripsCollection()
-    
-    let trip
+    const collection = getTripsCollection();
+
+    let trip;
     if (collection) {
       // Use MongoDB
-      trip = await collection.findOne({ id: req.params.id })
+      trip = await collection.findOne({ id: req.params.id });
     } else {
       // Fallback to memory store
-      trip = memoryStore.trips.findById(req.params.id)
+      trip = memoryStore.trips.findById(req.params.id);
     }
-    
+
     if (!trip) {
-      return res.status(404).json({ error: 'Trip not found' })
+      return res.status(404).json({ error: "Trip not found" });
     }
-    
+
     // Check if user has access (owner or shared with)
-    const isOwner = trip.userId === req.user.id
-    const isShared = trip.sharedWith && trip.sharedWith.some(s => s.userId === req.user.id)
-    
+    const isOwner = trip.userId === req.user.id;
+    const isShared =
+      trip.sharedWith && trip.sharedWith.some((s) => s.userId === req.user.id);
+
     if (!isOwner && !isShared) {
-      return res.status(403).json({ error: 'Access denied' })
+      return res.status(403).json({ error: "Access denied" });
     }
-    
+
     // Add flags for frontend
-    trip.isOwner = isOwner
-    trip.isShared = !isOwner
-    
-    res.json(trip)
+    trip.isOwner = isOwner;
+    trip.isShared = !isOwner;
+
+    res.json(trip);
   } catch (error) {
-    console.error('Error fetching trip:', error)
-    res.status(500).json({ error: 'Failed to fetch trip' })
+    console.error("Error fetching trip:", error);
+    res.status(500).json({ error: "Failed to fetch trip" });
   }
-})
+});
 
 // Create a new trip
-router.post('/', async (req, res) => {
+router.post("/", async (req, res) => {
   try {
-    const tripData = req.body
-    const collection = getTripsCollection()
-    
-    let createdTrip
+    const tripData = req.body;
+    const collection = getTripsCollection();
+
+    let createdTrip;
     if (collection) {
       // Use MongoDB
       const newTrip = {
@@ -143,249 +153,395 @@ router.post('/', async (req, res) => {
         rides: tripData.rides || [],
         attractions: tripData.attractions || [],
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-      await collection.insertOne(newTrip)
-      createdTrip = newTrip
-      console.log('✓ Trip saved to MongoDB:', createdTrip.id, '-', createdTrip.name, 'for user:', req.user.email)
+        updatedAt: new Date().toISOString(),
+      };
+      await collection.insertOne(newTrip);
+      createdTrip = newTrip;
+      console.log(
+        "✓ Trip saved to MongoDB:",
+        createdTrip.id,
+        "-",
+        createdTrip.name,
+        "for user:",
+        req.user.email
+      );
     } else {
       // Fallback to memory store
-      createdTrip = memoryStore.trips.create({...tripData, userId: req.user.id, userEmail: req.user.email})
-      console.log('✓ Trip saved to memory:', createdTrip.id, '-', createdTrip.name, 'for user:', req.user.email)
+      createdTrip = memoryStore.trips.create({
+        ...tripData,
+        userId: req.user.id,
+        userEmail: req.user.email,
+      });
+      console.log(
+        "✓ Trip saved to memory:",
+        createdTrip.id,
+        "-",
+        createdTrip.name,
+        "for user:",
+        req.user.email
+      );
     }
-    
-    res.status(201).json(createdTrip)
+
+    res.status(201).json(createdTrip);
   } catch (error) {
-    console.error('Error creating trip:', error)
-    res.status(500).json({ error: 'Failed to create trip', message: error.message })
+    console.error("Error creating trip:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to create trip", message: error.message });
   }
-})
+});
 
 // Update a trip
-router.put('/:id', async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
-    const collection = getTripsCollection()
-    
+    const collection = getTripsCollection();
+
     // Check if trip exists and user is owner
-    let existingTrip
+    let existingTrip;
     if (collection) {
-      existingTrip = await collection.findOne({ id: req.params.id })
+      existingTrip = await collection.findOne({ id: req.params.id });
     } else {
-      existingTrip = memoryStore.trips.findById(req.params.id)
+      existingTrip = memoryStore.trips.findById(req.params.id);
     }
-    
+
     if (!existingTrip) {
-      return res.status(404).json({ error: 'Trip not found' })
+      return res.status(404).json({ error: "Trip not found" });
     }
-    
+
     if (existingTrip.userId !== req.user.id) {
-      return res.status(403).json({ error: 'Only trip owner can edit' })
+      return res.status(403).json({ error: "Only trip owner can edit" });
     }
-    
-    let updated
+
+    let updated;
     if (collection) {
       // Use MongoDB
       const updateData = {
         ...req.body,
-        updatedAt: new Date().toISOString()
-      }
-      delete updateData._id // Remove MongoDB _id if present
-      
+        updatedAt: new Date().toISOString(),
+      };
+      delete updateData._id; // Remove MongoDB _id if present
+
       const result = await collection.findOneAndUpdate(
         { id: req.params.id },
         { $set: updateData },
-        { returnDocument: 'after' }
-      )
-      
+        { returnDocument: "after" }
+      );
+
       if (!result) {
-        return res.status(404).json({ error: 'Trip not found' })
+        return res.status(404).json({ error: "Trip not found" });
       }
-      updated = result
-      console.log('✓ Trip updated in MongoDB:', req.params.id)
+      updated = result;
+      console.log("✓ Trip updated in MongoDB:", req.params.id);
     } else {
       // Fallback to memory store
-      updated = memoryStore.trips.update(req.params.id, req.body)
+      updated = memoryStore.trips.update(req.params.id, req.body);
       if (!updated) {
-        return res.status(404).json({ error: 'Trip not found' })
+        return res.status(404).json({ error: "Trip not found" });
       }
-      console.log('✓ Trip updated in memory:', req.params.id)
+      console.log("✓ Trip updated in memory:", req.params.id);
     }
-    
-    res.json(updated)
-  } catch (error) {
-    console.error('Error updating trip:', error)
-    res.status(500).json({ error: 'Failed to update trip', message: error.message })
-  }
-})
 
-// Delete a trip
-router.delete('/:id', async (req, res) => {
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating trip:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to update trip", message: error.message });
+  }
+});
+
+// Update user's personal checklist (available to both owner and shared users)
+router.put("/:id/checklist", async (req, res) => {
   try {
-    const collection = getTripsCollection()
-    
-    // Check if trip exists and user is owner
-    let existingTrip
+    const collection = getTripsCollection();
+    const { checklist } = req.body;
+
+    // Check if trip exists and user has access (owner or shared user)
+    let existingTrip;
     if (collection) {
-      existingTrip = await collection.findOne({ id: req.params.id })
+      existingTrip = await collection.findOne({ id: req.params.id });
     } else {
-      existingTrip = memoryStore.trips.findById(req.params.id)
+      existingTrip = memoryStore.trips.findById(req.params.id);
     }
-    
+
     if (!existingTrip) {
-      return res.status(404).json({ error: 'Trip not found' })
+      return res.status(404).json({ error: "Trip not found" });
     }
-    
-    if (existingTrip.userId !== req.user.id) {
-      return res.status(403).json({ error: 'Only trip owner can delete' })
+
+    // Check if user is owner or has shared access
+    const isOwner = existingTrip.userId === req.user.id;
+    const isSharedUser = existingTrip.sharedWith?.some(
+      (s) => s.userId === req.user.id
+    );
+
+    if (!isOwner && !isSharedUser) {
+      return res.status(403).json({ error: "Access denied" });
     }
-    
-    let deleted
+
+    // Get existing userChecklists array or initialize it
+    const userChecklists = existingTrip.userChecklists || [];
+
+    // Find current user's checklist index
+    const userChecklistIndex = userChecklists.findIndex(
+      (uc) => uc.userId === req.user.id
+    );
+
+    // Update or add user's checklist
+    let updatedUserChecklists;
+    if (userChecklistIndex >= 0) {
+      updatedUserChecklists = [...userChecklists];
+      updatedUserChecklists[userChecklistIndex] = {
+        userId: req.user.id,
+        checklist: checklist,
+      };
+    } else {
+      updatedUserChecklists = [
+        ...userChecklists,
+        { userId: req.user.id, checklist: checklist },
+      ];
+    }
+
+    let updated;
     if (collection) {
       // Use MongoDB
-      const result = await collection.deleteOne({ id: req.params.id })
-      deleted = result.deletedCount > 0
+      const result = await collection.findOneAndUpdate(
+        { id: req.params.id },
+        {
+          $set: {
+            userChecklists: updatedUserChecklists,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+        { returnDocument: "after" }
+      );
+
+      if (!result) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+      updated = result;
+      console.log(
+        "✓ User checklist updated in MongoDB:",
+        req.params.id,
+        "for user:",
+        req.user.id
+      );
+    } else {
+      // Fallback to memory store
+      existingTrip.userChecklists = updatedUserChecklists;
+      existingTrip.updatedAt = new Date().toISOString();
+      updated = existingTrip;
+      console.log(
+        "✓ User checklist updated in memory:",
+        req.params.id,
+        "for user:",
+        req.user.id
+      );
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating user checklist:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to update checklist", message: error.message });
+  }
+});
+
+// Delete a trip
+router.delete("/:id", async (req, res) => {
+  try {
+    const collection = getTripsCollection();
+
+    // Check if trip exists and user is owner
+    let existingTrip;
+    if (collection) {
+      existingTrip = await collection.findOne({ id: req.params.id });
+    } else {
+      existingTrip = memoryStore.trips.findById(req.params.id);
+    }
+
+    if (!existingTrip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    if (existingTrip.userId !== req.user.id) {
+      return res.status(403).json({ error: "Only trip owner can delete" });
+    }
+
+    let deleted;
+    if (collection) {
+      // Use MongoDB
+      const result = await collection.deleteOne({ id: req.params.id });
+      deleted = result.deletedCount > 0;
       if (deleted) {
-        console.log('✓ Trip deleted from MongoDB:', req.params.id)
+        console.log("✓ Trip deleted from MongoDB:", req.params.id);
       }
     } else {
       // Fallback to memory store
-      deleted = memoryStore.trips.delete(req.params.id)
+      deleted = memoryStore.trips.delete(req.params.id);
       if (deleted) {
-        console.log('✓ Trip deleted from memory:', req.params.id)
+        console.log("✓ Trip deleted from memory:", req.params.id);
       }
     }
-    
+
     if (!deleted) {
-      return res.status(404).json({ error: 'Trip not found' })
+      return res.status(404).json({ error: "Trip not found" });
     }
-    
-    res.json({ success: true, message: 'Trip deleted successfully' })
+
+    res.json({ success: true, message: "Trip deleted successfully" });
   } catch (error) {
-    console.error('Error deleting trip:', error)
-    res.status(500).json({ error: 'Failed to delete trip', message: error.message })
+    console.error("Error deleting trip:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to delete trip", message: error.message });
   }
-})
+});
 
 // Share trip with users by email
-router.post('/:id/share', async (req, res) => {
+router.post("/:id/share", async (req, res) => {
   try {
-    const { emails } = req.body
-    
+    const { emails } = req.body;
+
     if (!Array.isArray(emails) || emails.length === 0) {
-      return res.status(400).json({ error: 'emails array is required' })
+      return res.status(400).json({ error: "emails array is required" });
     }
-    
-    const collection = getTripsCollection()
-    const trip = await getTripOr404(req, res)
-    if (!trip) return
-    
+
+    const collection = getTripsCollection();
+    const trip = await getTripOr404(req, res);
+    if (!trip) return;
+
     // Only owner can share
     if (trip.userId !== req.user.id) {
-      return res.status(403).json({ error: 'Only trip owner can share' })
+      return res.status(403).json({ error: "Only trip owner can share" });
     }
-    
+
     // Get user collection to validate emails
-    const db = collection ? collection.s.db : null
+    const db = collection ? collection.s.db : null;
     if (!db) {
-      return res.status(500).json({ error: 'Database not available' })
+      return res.status(500).json({ error: "Database not available" });
     }
-    
-    const usersCollection = db.collection('users')
-    const users = await usersCollection.find({ email: { $in: emails } }).toArray()
-    
+
+    const usersCollection = db.collection("users");
+    const users = await usersCollection
+      .find({ email: { $in: emails } })
+      .toArray();
+
     if (users.length === 0) {
-      return res.status(404).json({ error: 'No registered users found with provided emails' })
+      return res
+        .status(404)
+        .json({ error: "No registered users found with provided emails" });
     }
-    
+
     // Initialize sharedWith if not exists
     if (!trip.sharedWith) {
-      trip.sharedWith = []
+      trip.sharedWith = [];
     }
-    
+
     // Add new users (avoid duplicates)
-    const newShares = users.filter(user => 
-      !trip.sharedWith.some(s => s.userId === user.id) && 
-      user.id !== trip.userId
-    ).map(user => ({
-      userId: user.id,  // Use custom id field, not MongoDB _id
-      email: user.email,
-      name: user.name,
-      sharedAt: new Date().toISOString()
-    }))
-    
+    const newShares = users
+      .filter(
+        (user) =>
+          !trip.sharedWith.some((s) => s.userId === user.id) &&
+          user.id !== trip.userId
+      )
+      .map((user) => ({
+        userId: user.id, // Use custom id field, not MongoDB _id
+        email: user.email,
+        name: user.name,
+        sharedAt: new Date().toISOString(),
+      }));
+
     if (newShares.length === 0) {
-      return res.status(400).json({ error: 'All users already have access or are trip owner' })
+      return res
+        .status(400)
+        .json({ error: "All users already have access or are trip owner" });
     }
-    
-    trip.sharedWith.push(...newShares)
-    
+
+    trip.sharedWith.push(...newShares);
+
     // Update in database
     await collection.updateOne(
       { id: trip.id },
-      { $set: { sharedWith: trip.sharedWith, updatedAt: new Date().toISOString() } }
-    )
-    
-    const updatedTrip = await collection.findOne({ id: trip.id })
-    
-    res.json({ 
+      {
+        $set: {
+          sharedWith: trip.sharedWith,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    const updatedTrip = await collection.findOne({ id: trip.id });
+
+    res.json({
       message: `Trip shared with ${newShares.length} user(s)`,
-      sharedWith: updatedTrip.sharedWith 
-    })
+      sharedWith: updatedTrip.sharedWith,
+    });
   } catch (error) {
-    console.error('Error sharing trip:', error)
-    res.status(500).json({ error: 'Failed to share trip', message: error.message })
+    console.error("Error sharing trip:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to share trip", message: error.message });
   }
-})
+});
 
 // Revoke trip access from a user
-router.delete('/:id/share/:userId', async (req, res) => {
+router.delete("/:id/share/:userId", async (req, res) => {
   try {
-    const { id, userId } = req.params
-    
-    const collection = getTripsCollection()
+    const { id, userId } = req.params;
+
+    const collection = getTripsCollection();
     if (!collection) {
-      return res.status(500).json({ error: 'Database not available' })
+      return res.status(500).json({ error: "Database not available" });
     }
-    
-    const trip = await collection.findOne({ id })
-    
+
+    const trip = await collection.findOne({ id });
+
     if (!trip) {
-      return res.status(404).json({ error: 'Trip not found' })
+      return res.status(404).json({ error: "Trip not found" });
     }
-    
+
     // Only owner can revoke access
     if (trip.userId !== req.user.id) {
-      return res.status(403).json({ error: 'Only trip owner can revoke access' })
+      return res
+        .status(403)
+        .json({ error: "Only trip owner can revoke access" });
     }
-    
+
     if (!trip.sharedWith) {
-      trip.sharedWith = []
+      trip.sharedWith = [];
     }
-    
-    const initialLength = trip.sharedWith.length
-    trip.sharedWith = trip.sharedWith.filter(s => s.userId !== userId)
-    
+
+    const initialLength = trip.sharedWith.length;
+    trip.sharedWith = trip.sharedWith.filter((s) => s.userId !== userId);
+
     if (trip.sharedWith.length === initialLength) {
-      return res.status(404).json({ error: 'User not found in shared list' })
+      return res.status(404).json({ error: "User not found in shared list" });
     }
-    
+
     // Update in database
     await collection.updateOne(
       { id: trip.id },
-      { $set: { sharedWith: trip.sharedWith, updatedAt: new Date().toISOString() } }
-    )
-    
-    res.json({ 
-      message: 'Access revoked successfully',
-      sharedWith: trip.sharedWith 
-    })
-  } catch (error) {
-    console.error('Error revoking access:', error)
-    res.status(500).json({ error: 'Failed to revoke access', message: error.message })
-  }
-})
+      {
+        $set: {
+          sharedWith: trip.sharedWith,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    );
 
-export default router
+    res.json({
+      message: "Access revoked successfully",
+      sharedWith: trip.sharedWith,
+    });
+  } catch (error) {
+    console.error("Error revoking access:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to revoke access", message: error.message });
+  }
+});
+
+export default router;
 
 /**
  * Trip Sub-resources API
@@ -397,109 +553,146 @@ export default router
  * DELETE /api/trips/:id/:type/:idx  -> remove by index (type in flights|hotels|rides|attractions)
  */
 
-router.post('/:id/flights', async (req, res) => {
-  const trip = await getTripOr404(req, res)
-  if (!trip) return
-  const flight = req.body || {}
+router.post("/:id/flights", async (req, res) => {
+  const trip = await getTripOr404(req, res);
+  if (!trip) return;
+  const flight = req.body || {};
   // minimal validation
-  if (!flight.flightNumber || !flight.departureDateTime || !flight.arrivalDateTime) {
-    return res.status(400).json({ error: 'flightNumber, departureDateTime and arrivalDateTime are required' })
+  if (
+    !flight.flightNumber ||
+    !flight.departureDateTime ||
+    !flight.arrivalDateTime
+  ) {
+    return res
+      .status(400)
+      .json({
+        error:
+          "flightNumber, departureDateTime and arrivalDateTime are required",
+      });
   }
-  trip.flights.push(flight)
-  
-  const collection = getTripsCollection()
-  let updated
-  if (collection) {
-    await collection.updateOne({ id: trip.id }, { $set: { flights: trip.flights, updatedAt: new Date().toISOString() } })
-    updated = await collection.findOne({ id: trip.id })
-  } else {
-    updated = memoryStore.trips.update(trip.id, { flights: trip.flights })
-  }
-  
-  res.status(201).json(updated)
-})
+  trip.flights.push(flight);
 
-router.post('/:id/hotels', async (req, res) => {
-  const trip = await getTripOr404(req, res)
-  if (!trip) return
-  const hotel = req.body || {}
+  const collection = getTripsCollection();
+  let updated;
+  if (collection) {
+    await collection.updateOne(
+      { id: trip.id },
+      { $set: { flights: trip.flights, updatedAt: new Date().toISOString() } }
+    );
+    updated = await collection.findOne({ id: trip.id });
+  } else {
+    updated = memoryStore.trips.update(trip.id, { flights: trip.flights });
+  }
+
+  res.status(201).json(updated);
+});
+
+router.post("/:id/hotels", async (req, res) => {
+  const trip = await getTripOr404(req, res);
+  if (!trip) return;
+  const hotel = req.body || {};
   if (!hotel.name || !hotel.checkIn || !hotel.checkOut) {
-    return res.status(400).json({ error: 'name, checkIn and checkOut are required' })
+    return res
+      .status(400)
+      .json({ error: "name, checkIn and checkOut are required" });
   }
-  trip.hotels.push(hotel)
-  
-  const collection = getTripsCollection()
-  let updated
-  if (collection) {
-    await collection.updateOne({ id: trip.id }, { $set: { hotels: trip.hotels, updatedAt: new Date().toISOString() } })
-    updated = await collection.findOne({ id: trip.id })
-  } else {
-    updated = memoryStore.trips.update(trip.id, { hotels: trip.hotels })
-  }
-  
-  res.status(201).json(updated)
-})
+  trip.hotels.push(hotel);
 
-router.post('/:id/rides', async (req, res) => {
-  const trip = await getTripOr404(req, res)
-  if (!trip) return
-  const ride = req.body || {}
+  const collection = getTripsCollection();
+  let updated;
+  if (collection) {
+    await collection.updateOne(
+      { id: trip.id },
+      { $set: { hotels: trip.hotels, updatedAt: new Date().toISOString() } }
+    );
+    updated = await collection.findOne({ id: trip.id });
+  } else {
+    updated = memoryStore.trips.update(trip.id, { hotels: trip.hotels });
+  }
+
+  res.status(201).json(updated);
+});
+
+router.post("/:id/rides", async (req, res) => {
+  const trip = await getTripOr404(req, res);
+  if (!trip) return;
+  const ride = req.body || {};
   if (!ride.pickup || !ride.dropoff) {
-    return res.status(400).json({ error: 'pickup and dropoff are required' })
+    return res.status(400).json({ error: "pickup and dropoff are required" });
   }
-  trip.rides.push(ride)
-  
-  const collection = getTripsCollection()
-  let updated
-  if (collection) {
-    await collection.updateOne({ id: trip.id }, { $set: { rides: trip.rides, updatedAt: new Date().toISOString() } })
-    updated = await collection.findOne({ id: trip.id })
-  } else {
-    updated = memoryStore.trips.update(trip.id, { rides: trip.rides })
-  }
-  
-  res.status(201).json(updated)
-})
+  trip.rides.push(ride);
 
-router.post('/:id/attractions', async (req, res) => {
-  const trip = await getTripOr404(req, res)
-  if (!trip) return
-  const attraction = req.body || {}
+  const collection = getTripsCollection();
+  let updated;
+  if (collection) {
+    await collection.updateOne(
+      { id: trip.id },
+      { $set: { rides: trip.rides, updatedAt: new Date().toISOString() } }
+    );
+    updated = await collection.findOne({ id: trip.id });
+  } else {
+    updated = memoryStore.trips.update(trip.id, { rides: trip.rides });
+  }
+
+  res.status(201).json(updated);
+});
+
+router.post("/:id/attractions", async (req, res) => {
+  const trip = await getTripOr404(req, res);
+  if (!trip) return;
+  const attraction = req.body || {};
   if (!attraction.name || !attraction.scheduledDate) {
-    return res.status(400).json({ error: 'name and scheduledDate are required' })
+    return res
+      .status(400)
+      .json({ error: "name and scheduledDate are required" });
   }
-  trip.attractions.push(attraction)
-  
-  const collection = getTripsCollection()
-  let updated
-  if (collection) {
-    await collection.updateOne({ id: trip.id }, { $set: { attractions: trip.attractions, updatedAt: new Date().toISOString() } })
-    updated = await collection.findOne({ id: trip.id })
-  } else {
-    updated = memoryStore.trips.update(trip.id, { attractions: trip.attractions })
-  }
-  
-  res.status(201).json(updated)
-})
+  trip.attractions.push(attraction);
 
-router.delete('/:id/:type/:idx', async (req, res) => {
-  const trip = await getTripOr404(req, res)
-  if (!trip) return
-  const { type, idx } = req.params
-  const valid = ['flights','hotels','rides','attractions']
-  if (!valid.includes(type)) return res.status(400).json({ error: 'Invalid type' })
-  const i = parseInt(idx, 10)
-  if (Number.isNaN(i) || i < 0 || i >= trip[type].length) return res.status(400).json({ error: 'Invalid index' })
-  trip[type].splice(i, 1)
-  
-  const collection = getTripsCollection()
-  let updated
+  const collection = getTripsCollection();
+  let updated;
   if (collection) {
-    await collection.updateOne({ id: trip.id }, { $set: { [type]: trip[type], updatedAt: new Date().toISOString() } })
-    updated = await collection.findOne({ id: trip.id })
+    await collection.updateOne(
+      { id: trip.id },
+      {
+        $set: {
+          attractions: trip.attractions,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    );
+    updated = await collection.findOne({ id: trip.id });
   } else {
-    updated = memoryStore.trips.update(trip.id, { [type]: trip[type] })
+    updated = memoryStore.trips.update(trip.id, {
+      attractions: trip.attractions,
+    });
   }
-  
-  res.json(updated)
-})
+
+  res.status(201).json(updated);
+});
+
+router.delete("/:id/:type/:idx", async (req, res) => {
+  const trip = await getTripOr404(req, res);
+  if (!trip) return;
+  const { type, idx } = req.params;
+  const valid = ["flights", "hotels", "rides", "attractions"];
+  if (!valid.includes(type))
+    return res.status(400).json({ error: "Invalid type" });
+  const i = parseInt(idx, 10);
+  if (Number.isNaN(i) || i < 0 || i >= trip[type].length)
+    return res.status(400).json({ error: "Invalid index" });
+  trip[type].splice(i, 1);
+
+  const collection = getTripsCollection();
+  let updated;
+  if (collection) {
+    await collection.updateOne(
+      { id: trip.id },
+      { $set: { [type]: trip[type], updatedAt: new Date().toISOString() } }
+    );
+    updated = await collection.findOne({ id: trip.id });
+  } else {
+    updated = memoryStore.trips.update(trip.id, { [type]: trip[type] });
+  }
+
+  res.json(updated);
+});

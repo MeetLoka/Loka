@@ -77,6 +77,14 @@ export async function updateTrip(
   return res.data;
 }
 
+export async function updateUserChecklist(
+  id: string,
+  checklist: any[]
+): Promise<Trip> {
+  const res = await api.put<Trip>(`/trips/${id}/checklist`, { checklist });
+  return res.data;
+}
+
 export async function deleteTrip(id: string): Promise<void> {
   await api.delete(`/trips/${id}`);
 }

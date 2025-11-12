@@ -9,6 +9,7 @@ import {
   deleteRideFromTrip,
   deleteAttractionFromTrip,
   updateTrip,
+  updateUserChecklist,
   addFlightToTrip,
   addHotelToTrip,
   addRideToTrip,
@@ -19,8 +20,10 @@ import {
   placeDetails,
   calculateSmartCheckoutTime,
 } from '../services/api';
-import type { Trip } from '../types/domain';
+import type { Trip, ChecklistCategory, UserChecklist } from '../types/domain';
 import { groupTripByDay } from '../types/domain';
+import TripChecklist from '../components/TripChecklist';
+import { useAuth } from '../context/AuthContext';
 import {
   AddFlightForm,
   AddHotelForm,
@@ -93,6 +96,7 @@ import {
   Share as ShareIcon,
   Visibility as VisibilityIcon,
   BarChart as GanttIcon,
+  ChecklistRtl as ChecklistIcon,
 } from '@mui/icons-material';
 
 // Helper function to get attraction type label
@@ -122,7 +126,7 @@ import ShareTripDialog from '../components/ShareTripDialog';
 import { format, parseISO } from 'date-fns';
 
 type FilterCategory = 'all' | 'flights' | 'hotels' | 'rides' | 'attractions';
-type ViewMode = 'list' | 'timeline' | 'map' | 'gantt';
+type ViewMode = 'list' | 'timeline' | 'map' | 'gantt' | 'checklist';
 
 // Small embedded map component for ride routes
 function RideMapEmbed({ ride }: { ride: any }) {
@@ -331,6 +335,7 @@ function TripMapView({ trip }: { trip: Trip }) {
 export default function TripDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterCategory>('all');
@@ -414,6 +419,13 @@ export default function TripDetails() {
         .catch((e) => setError(e.message));
   }, [id]);
 
+  // Redirect shared users from list view to timeline
+  useEffect(() => {
+    if (!isOwner && viewMode === 'list') {
+      setViewMode('timeline');
+    }
+  }, [isOwner, viewMode]);
+
   // Calculate smart checkout times when trip loads or changes
   useEffect(() => {
     if (!trip) return;
@@ -479,6 +491,22 @@ export default function TripDetails() {
       } catch (e: any) {
         setError(e.message);
       }
+    }
+  };
+
+  const handleChecklistUpdate = async (
+    updatedChecklist: ChecklistCategory[]
+  ) => {
+    if (!id || !user) return;
+
+    try {
+      // Use the new user-specific checklist endpoint
+      // This works for both owners and shared users
+      const updated = await updateUserChecklist(id, updatedChecklist);
+      setTrip(updated);
+      setError(null);
+    } catch (e: any) {
+      setError(e.message);
     }
   };
 
@@ -1021,24 +1049,27 @@ export default function TripDetails() {
             sx={{ border: '1px solid', borderColor: 'divider' }}
           >
             <Stack direction="row">
-              <Button
-                size="small"
-                startIcon={<ViewList />}
-                onClick={() => setViewMode('list')}
-                sx={{
-                  borderRadius: 0,
-                  borderRight: '1px solid',
-                  borderColor: 'divider',
-                  bgcolor: viewMode === 'list' ? 'primary.main' : 'transparent',
-                  color: viewMode === 'list' ? 'white' : 'text.primary',
-                  '&:hover': {
+              {isOwner && (
+                <Button
+                  size="small"
+                  startIcon={<ViewList />}
+                  onClick={() => setViewMode('list')}
+                  sx={{
+                    borderRadius: 0,
+                    borderRight: '1px solid',
+                    borderColor: 'divider',
                     bgcolor:
-                      viewMode === 'list' ? 'primary.dark' : 'action.hover',
-                  },
-                }}
-              >
-                List
-              </Button>
+                      viewMode === 'list' ? 'primary.main' : 'transparent',
+                    color: viewMode === 'list' ? 'white' : 'text.primary',
+                    '&:hover': {
+                      bgcolor:
+                        viewMode === 'list' ? 'primary.dark' : 'action.hover',
+                    },
+                  }}
+                >
+                  List
+                </Button>
+              )}
               <Button
                 size="small"
                 startIcon={<TimelineIcon />}
@@ -1082,6 +1113,8 @@ export default function TripDetails() {
                 onClick={() => setViewMode('gantt')}
                 sx={{
                   borderRadius: 0,
+                  borderRight: '1px solid',
+                  borderColor: 'divider',
                   bgcolor:
                     viewMode === 'gantt' ? 'primary.main' : 'transparent',
                   color: viewMode === 'gantt' ? 'white' : 'text.primary',
@@ -1092,6 +1125,25 @@ export default function TripDetails() {
                 }}
               >
                 Gantt
+              </Button>
+              <Button
+                size="small"
+                startIcon={<ChecklistIcon />}
+                onClick={() => setViewMode('checklist')}
+                sx={{
+                  borderRadius: 0,
+                  bgcolor:
+                    viewMode === 'checklist' ? 'primary.main' : 'transparent',
+                  color: viewMode === 'checklist' ? 'white' : 'text.primary',
+                  '&:hover': {
+                    bgcolor:
+                      viewMode === 'checklist'
+                        ? 'primary.dark'
+                        : 'action.hover',
+                  },
+                }}
+              >
+                Checklist
               </Button>
             </Stack>
           </Paper>
@@ -3556,12 +3608,16 @@ export default function TripDetails() {
                   itemEndDate?: string,
                   itemEndTime?: string
                 ) => {
+                  if (!itemStartDate || !itemStartTime) {
+                    return { left: 0, width: 2 };
+                  }
+
                   const tripStart = new Date(trip.startDate).getTime();
                   const tripDuration =
                     new Date(trip.endDate).getTime() - tripStart + 86400000; // +1 day in ms
 
                   // Parse start
-                  const [startHour, startMin] = itemStartTime
+                  const [startHour = 0, startMin = 0] = itemStartTime
                     .split(':')
                     .map(Number);
                   const startDateTime =
@@ -3575,7 +3631,7 @@ export default function TripDetails() {
                   // Parse end
                   let widthPercent = 2; // Minimum width for point events
                   if (itemEndDate && itemEndTime) {
-                    const [endHour, endMin] = itemEndTime
+                    const [endHour = 0, endMin = 0] = itemEndTime
                       .split(':')
                       .map(Number);
                     const endDateTime =
@@ -3592,18 +3648,22 @@ export default function TripDetails() {
                 };
 
                 // Collect all items by category
-                const flights = trip.flights.map((f) => ({
-                  ...f,
-                  startDate:
-                    f.departureDateTime.split('T')[0] ||
-                    f.departureDateTime.split(' ')[0],
-                  startTime: extractTime(f.departureDateTime),
-                  endDate:
-                    f.arrivalDateTime.split('T')[0] ||
-                    f.arrivalDateTime.split(' ')[0],
-                  endTime: extractTime(f.arrivalDateTime),
-                  label: `${f.airline || ''} ${f.flightNumber || ''} | ${f.departureAirportCode} → ${f.arrivalAirportCode}`,
-                }));
+                const flights = trip.flights.map((f) => {
+                  const depDateTime = f.departureDateTime || '';
+                  const arrDateTime = f.arrivalDateTime || '';
+                  return {
+                    ...f,
+                    startDate: depDateTime.includes('T')
+                      ? depDateTime.split('T')[0]
+                      : depDateTime.split(' ')[0],
+                    startTime: extractTime(depDateTime),
+                    endDate: arrDateTime.includes('T')
+                      ? arrDateTime.split('T')[0]
+                      : arrDateTime.split(' ')[0],
+                    endTime: extractTime(arrDateTime),
+                    label: `${f.airline || ''} ${f.flightNumber || ''} | ${f.departureAirportCode} → ${f.arrivalAirportCode}`,
+                  };
+                });
 
                 const hotels = trip.hotels.map((h) => ({
                   ...h,
@@ -3727,7 +3787,7 @@ export default function TripDetails() {
                             sx={{ color: '#1976d2' }}
                           />
                           <Typography variant="subtitle2" fontWeight={600}>
-                            ✈️ Flights
+                            Flights
                           </Typography>
                         </Stack>
                       </Box>
@@ -3852,7 +3912,7 @@ export default function TripDetails() {
                             sx={{ color: '#9c27b0' }}
                           />
                           <Typography variant="subtitle2" fontWeight={600}>
-                            🏨 Hotels
+                            Hotels
                           </Typography>
                         </Stack>
                       </Box>
@@ -3974,7 +4034,7 @@ export default function TripDetails() {
                             sx={{ color: '#0288d1' }}
                           />
                           <Typography variant="subtitle2" fontWeight={600}>
-                            🚗 Rides
+                            Rides
                           </Typography>
                         </Stack>
                       </Box>
@@ -4096,7 +4156,7 @@ export default function TripDetails() {
                             sx={{ color: '#2e7d32' }}
                           />
                           <Typography variant="subtitle2" fontWeight={600}>
-                            🎟️ Activities
+                            Activities
                           </Typography>
                         </Stack>
                       </Box>
@@ -4197,6 +4257,21 @@ export default function TripDetails() {
               })()}
             </Box>
           </Card>
+        </Box>
+      )}
+
+      {/* Checklist View */}
+      {viewMode === 'checklist' && (
+        <Box sx={{ mt: 2 }}>
+          <TripChecklist
+            checklist={
+              user
+                ? trip.userChecklists?.find((uc) => uc.userId === user.id)
+                    ?.checklist || []
+                : trip.checklist || []
+            }
+            onUpdate={handleChecklistUpdate}
+          />
         </Box>
       )}
 
