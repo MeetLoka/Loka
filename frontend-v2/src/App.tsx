@@ -8,8 +8,20 @@ import NewTripWizard from './pages/NewTripWizard';
 import TripDetails from './pages/TripDetails';
 import Login from './pages/Login';
 
-const GOOGLE_CLIENT_ID =
-  '505365576143-5r5n1sk575v1gjkmvr42gfpr89r8u9cd.apps.googleusercontent.com';
+// Read Google OAuth client ID from environment for flexibility across dev/staging/prod
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+if (!GOOGLE_CLIENT_ID) {
+  // The client ID is public, but missing it will disable Google sign-in flows.
+  // Keep this warning to help developers configure their local env.
+  // Set VITE_GOOGLE_CLIENT_ID in `.env.local` (do not commit secrets) or in CI.
+  // Example: VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+  // This mirrors how VITE_GOOGLE_MAPS_API_KEY is consumed in `src/services/api.ts`.
+  // eslint-disable-next-line no-console
+  console.warn(
+    'VITE_GOOGLE_CLIENT_ID is not set. Google OAuth sign-in will not work until configured.'
+  );
+}
 
 export default function App() {
   return (
