@@ -44,6 +44,7 @@ export const theme = createTheme({
   },
   typography: {
     fontFamily: [
+      'Nunito',
       '-apple-system',
       'BlinkMacSystemFont',
       '"Segoe UI"',
@@ -53,30 +54,39 @@ export const theme = createTheme({
       'sans-serif',
     ].join(','),
     h4: {
-      fontWeight: 600,
+      fontWeight: 800,
       fontSize: '2rem',
+      letterSpacing: '-0.01em',
     },
     h5: {
-      fontWeight: 600,
+      fontWeight: 800,
       fontSize: '1.5rem',
+      letterSpacing: '-0.01em',
     },
     h6: {
-      fontWeight: 600,
+      fontWeight: 800,
       fontSize: '1.25rem',
+      letterSpacing: '-0.01em',
     },
     subtitle1: {
       fontSize: '1rem',
-      fontWeight: 500,
+      fontWeight: 700,
+      letterSpacing: '-0.01em',
     },
     body1: {
       fontSize: '1rem',
+      fontWeight: 500,
+      letterSpacing: '-0.01em',
     },
     body2: {
       fontSize: '0.875rem',
+      fontWeight: 500,
+      letterSpacing: '-0.01em',
     },
     button: {
       textTransform: 'none',
-      fontWeight: 500,
+      fontWeight: 700,
+      letterSpacing: '-0.01em',
     },
   },
   shape: {
