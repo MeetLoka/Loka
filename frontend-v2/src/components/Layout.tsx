@@ -16,6 +16,7 @@ import { Flight, Dashboard, Logout } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import CloudsBackground from './CloudsBackground';
+import logo from '../svgs/logo.svg';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -37,16 +38,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
       {/* Cloud background sits behind the whole layout. You can tweak count/opacity here. */}
-      <CloudsBackground count={50} />
+      <CloudsBackground count={200} />
       <AppBar
         position="static"
-        elevation={1}
+        elevation={0}
         sx={{ bgcolor: 'common.white', color: 'text.primary' }}
       >
         <Toolbar>
-          <Flight sx={{ mr: 1, color: 'primary.main' }} />
           <Typography
             variant="h6"
             component={Link}
@@ -57,8 +63,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               textDecoration: 'none',
               color: 'primary.main',
               fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
+            <img
+              src={logo}
+              alt="Loka Logo"
+              style={{ height: 40, marginRight: 16 }}
+            />
             Meet Loka
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>

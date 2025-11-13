@@ -69,6 +69,7 @@ import {
   Select,
   MenuItem,
   Tooltip,
+  Container,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -847,15 +848,16 @@ export default function TripDetails() {
   }));
 
   return (
-    <Box zIndex={1}>
+    <Box style={{ zIndex: 1 }} maxWidth="xl">
       {/* Header Section */}
       <Paper
         elevation={0}
         sx={{
-          p: 4,
+          width: '100%',
+          py: 4,
           mb: 4,
-          bgcolor: 'primary.main',
-          color: 'white',
+          bgcolor: 'transparent',
+          color: 'primary.main',
           borderRadius: 3,
           background:
             'linear-gradient(135deg, --color-primary 0%, --color-primary 100%)',
@@ -872,7 +874,7 @@ export default function TripDetails() {
             to="/"
             startIcon={<ArrowBack />}
             sx={{
-              color: 'white',
+              color: 'primary.main',
               '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
             }}
           >
@@ -885,7 +887,7 @@ export default function TripDetails() {
                 label="View Only"
                 sx={{
                   bgcolor: 'rgba(255,255,255,0.2)',
-                  color: 'white',
+                  color: 'primary.main',
                   fontWeight: 600,
                 }}
               />
@@ -896,7 +898,7 @@ export default function TripDetails() {
                   startIcon={<ShareIcon />}
                   onClick={() => setShareDialogOpen(true)}
                   sx={{
-                    color: 'white',
+                    color: 'primary.main',
                     borderColor: 'rgba(255,255,255,0.5)',
                     '&:hover': {
                       bgcolor: 'rgba(255,255,255,0.2)',
@@ -911,7 +913,7 @@ export default function TripDetails() {
                   startIcon={<DirectionsCar />}
                   onClick={() => setShowGenerateRide(true)}
                   sx={{
-                    color: 'white',
+                    color: 'primary.main',
                     borderColor: 'rgba(255,255,255,0.5)',
                     '&:hover': {
                       bgcolor: 'rgba(255,255,255,0.2)',
@@ -926,7 +928,7 @@ export default function TripDetails() {
                   startIcon={<EditIcon />}
                   onClick={handleEditTripOpen}
                   sx={{
-                    color: 'white',
+                    color: 'primary.main',
                     borderColor: 'rgba(255,255,255,0.5)',
                     '&:hover': {
                       bgcolor: 'rgba(255,255,255,0.2)',
@@ -941,7 +943,7 @@ export default function TripDetails() {
                   startIcon={<DeleteIcon />}
                   onClick={() => setDeleteConfirm({ open: true, type: 'trip' })}
                   sx={{
-                    color: 'white',
+                    color: 'primary.main',
                     borderColor: 'rgba(255,255,255,0.5)',
                     '&:hover': {
                       bgcolor: 'rgba(255,0,0,0.2)',
@@ -956,79 +958,130 @@ export default function TripDetails() {
             )}
           </Stack>
         </Stack>
-
-        <Typography variant="h3" fontWeight={900} gutterBottom>
-          {trip.name}
-        </Typography>
-
-        <Stack
-          direction="row"
-          spacing={2}
-          alignItems="center"
-          flexWrap="wrap"
-          gap={1}
-        >
-          <Chip
-            icon={<CalendarMonth sx={{ color: 'white !important' }} />}
-            label={`${new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → ${new Date(
-              trip.endDate
-            ).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}`}
-            sx={{
-              bgcolor: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              fontWeight: 600,
-              '& .MuiChip-icon': { color: 'white' },
-            }}
-          />
-          {trip.destinations?.length > 0 && (
-            <Typography variant="h6" sx={{ opacity: 0.95, fontWeight: 500 }}>
-              📍 {trip.destinations.join(', ')}
+        <Stack direction="row" spacing={10} alignItems="end" flexWrap="wrap">
+          <Stack
+            direction="column"
+            spacing={2}
+            alignItems="start"
+            pl={10}
+            pb={2}
+            width="fit-content"
+          >
+            <Typography variant="h3" fontWeight={900} gutterBottom>
+              {trip.name}
             </Typography>
-          )}
+
+            <Stack
+              direction="row"
+              spacing={2}
+              alignItems="center"
+              flexWrap="wrap"
+              gap={1}
+            >
+              <Chip
+                icon={
+                  <CalendarMonth sx={{ color: 'var(--primary) !important' }} />
+                }
+                label={`${new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → ${new Date(
+                  trip.endDate
+                ).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}`}
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'primary.main',
+                  fontWeight: 600,
+                  '& .MuiChip-icon': { color: 'primary.main' },
+                }}
+              />
+              {trip.destinations?.length > 0 && (
+                <Typography
+                  variant="h6"
+                  sx={{ opacity: 0.95, fontWeight: 500 }}
+                >
+                  📍 {trip.destinations.join(', ')}
+                </Typography>
+              )}
+            </Stack>
+          </Stack>
+
+          <Box
+            component="video"
+            autoPlay
+            loop
+            muted
+            playsInline
+            sx={{
+              width: 120,
+              maxWidth: 400,
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+            style={{
+              marginBottom: '-10px',
+            }}
+          >
+            <source src="/videos/idle-animation.webm" type="video/webm" />
+          </Box>
         </Stack>
 
-        {/* Trip Summary Stats */}
-        <Stack direction="row" spacing={4} mt={3} flexWrap="wrap">
-          {trip.flights?.length > 0 && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <FlightIcon />
-              <Typography variant="h6" fontWeight={600}>
-                {trip.flights.length}{' '}
-                {trip.flights.length === 1 ? 'Flight' : 'Flights'}
-              </Typography>
-            </Stack>
-          )}
-          {trip.hotels?.length > 0 && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <HotelIcon />
-              <Typography variant="h6" fontWeight={600}>
-                {trip.hotels.length}{' '}
-                {trip.hotels.length === 1 ? 'Hotel' : 'Hotels'}
-              </Typography>
-            </Stack>
-          )}
-          {trip.rides?.length > 0 && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <DirectionsCar />
-              <Typography variant="h6" fontWeight={600}>
-                {trip.rides.length} {trip.rides.length === 1 ? 'Ride' : 'Rides'}
-              </Typography>
-            </Stack>
-          )}
-          {trip.attractions?.length > 0 && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <AttractionsOutlined />
-              <Typography variant="h6" fontWeight={600}>
-                {trip.attractions.length}{' '}
-                {trip.attractions.length === 1 ? 'Attraction' : 'Attractions'}
-              </Typography>
-            </Stack>
-          )}
-        </Stack>
+        <Box
+          sx={{
+            width: '100%',
+            height: 100,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'start',
+            padding: 3,
+            px: 10,
+            borderRadius: 2,
+            background:
+              'linear-gradient(180deg, var(--color-primary) 60%, rgba(0, 157, 133, 0) 100%)',
+          }}
+          aria-hidden
+        >
+          {/* Trip Summary Stats */}
+          <Stack direction="row" spacing={4} flexWrap="wrap">
+            {trip.flights?.length > 0 && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <FlightIcon />
+                <Typography variant="h6" fontWeight={600}>
+                  {trip.flights.length}{' '}
+                  {trip.flights.length === 1 ? 'Flight' : 'Flights'}
+                </Typography>
+              </Stack>
+            )}
+            {trip.hotels?.length > 0 && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <HotelIcon />
+                <Typography variant="h6" fontWeight={600}>
+                  {trip.hotels.length}{' '}
+                  {trip.hotels.length === 1 ? 'Hotel' : 'Hotels'}
+                </Typography>
+              </Stack>
+            )}
+            {trip.rides?.length > 0 && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <DirectionsCar />
+                <Typography variant="h6" fontWeight={600}>
+                  {trip.rides.length}{' '}
+                  {trip.rides.length === 1 ? 'Ride' : 'Rides'}
+                </Typography>
+              </Stack>
+            )}
+            {trip.attractions?.length > 0 && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AttractionsOutlined />
+                <Typography variant="h6" fontWeight={600}>
+                  {trip.attractions.length}{' '}
+                  {trip.attractions.length === 1 ? 'Attraction' : 'Attractions'}
+                </Typography>
+              </Stack>
+            )}
+          </Stack>
+        </Box>
       </Paper>
 
       {/* Action Bar */}
@@ -3720,7 +3773,11 @@ export default function TripDetails() {
 
                       {/* Days timeline */}
                       <Box
-                        sx={{ flex: 1, display: 'flex', position: 'relative' }}
+                        sx={{
+                          flex: 1,
+                          display: 'flex',
+                          position: 'relative',
+                        }}
                       >
                         {Array.from({ length: totalDays }, (_, i) => {
                           const dayDate = new Date(startDate);
@@ -4542,7 +4599,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, cost: Number(e.target.value) },
+                      data: {
+                        ...editItem.data,
+                        cost: Number(e.target.value),
+                      },
                     })
                   }
                 />
@@ -4571,7 +4631,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, bookingNumber: e.target.value },
+                      data: {
+                        ...editItem.data,
+                        bookingNumber: e.target.value,
+                      },
                     })
                   }
                 />
@@ -4582,7 +4645,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, bookingAgency: e.target.value },
+                      data: {
+                        ...editItem.data,
+                        bookingAgency: e.target.value,
+                      },
                     })
                   }
                 />
@@ -4595,7 +4661,10 @@ export default function TripDetails() {
                       onChange={(e) =>
                         setEditItem({
                           ...editItem,
-                          data: { ...editItem.data, carryOn: e.target.checked },
+                          data: {
+                            ...editItem.data,
+                            carryOn: e.target.checked,
+                          },
                         })
                       }
                     />
@@ -4772,7 +4841,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, cost: Number(e.target.value) },
+                      data: {
+                        ...editItem.data,
+                        cost: Number(e.target.value),
+                      },
                     })
                   }
                 />
@@ -4969,7 +5041,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, cost: Number(e.target.value) },
+                      data: {
+                        ...editItem.data,
+                        cost: Number(e.target.value),
+                      },
                     })
                   }
                 />
@@ -5252,7 +5327,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, scheduledDate: e.target.value },
+                      data: {
+                        ...editItem.data,
+                        scheduledDate: e.target.value,
+                      },
                     })
                   }
                   InputLabelProps={{ shrink: true }}
@@ -5265,7 +5343,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, scheduledTime: e.target.value },
+                      data: {
+                        ...editItem.data,
+                        scheduledTime: e.target.value,
+                      },
                     })
                   }
                   InputLabelProps={{ shrink: true }}
@@ -5296,7 +5377,10 @@ export default function TripDetails() {
                   onChange={(e) =>
                     setEditItem({
                       ...editItem,
-                      data: { ...editItem.data, cost: Number(e.target.value) },
+                      data: {
+                        ...editItem.data,
+                        cost: Number(e.target.value),
+                      },
                     })
                   }
                 />

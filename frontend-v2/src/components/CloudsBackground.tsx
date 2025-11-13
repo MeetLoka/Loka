@@ -168,7 +168,7 @@ export default function CloudsBackground({
   const clouds = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => {
       const svg = CLOUD_SVGS[i % CLOUD_SVGS.length];
-      const top = randBetween(2, 100); // percent from top
+      const top = randBetween(0, 100); // percent from top
       const scale = randBetween(0.6, 1.8);
       const duration = randBetween(75, 90); // seconds to cross
       const delay = -randBetween(0, 60); // negative to start at different phases
