@@ -25,6 +25,7 @@ import {
   Divider,
   Chip,
   Alert,
+  useMediaQuery,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -36,6 +37,7 @@ import {
   AttractionsOutlined,
   Info,
 } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 
 interface BasicInfo {
   name: string;
@@ -64,6 +66,8 @@ export default function NewTripWizard() {
   const [creating, setCreating] = useState(false);
   const [trip, setTrip] = useState<Trip | null>(null);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Reset wizard when component mounts (new trip creation)
   useEffect(() => {
@@ -105,12 +109,19 @@ export default function NewTripWizard() {
   const canFinish = !!trip;
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
+    <Box
+      sx={{
+        maxWidth: 1000,
+        mx: 'auto',
+        width: '100%',
+        px: { xs: 1, sm: 2, md: 0 },
+      }}
+    >
       {/* Header */}
       <Paper
         elevation={0}
         sx={{
-          p: 3,
+          p: { xs: 2, md: 3 },
           mb: 4,
           bgcolor: 'primary.main',
           color: 'white',
@@ -118,9 +129,10 @@ export default function NewTripWizard() {
         }}
       >
         <Stack
-          direction="row"
+          direction={{ xs: 'column-reverse', sm: 'row' }}
           justifyContent="space-between"
-          alignItems="center"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
           mb={2}
         >
           <Button
@@ -132,18 +144,27 @@ export default function NewTripWizard() {
             sx={{
               color: 'white',
               '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+              width: { xs: '100%', sm: 'auto' },
             }}
           >
             Cancel
           </Button>
         </Stack>
-        <Typography variant="h4" fontWeight={700}>
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}
+        >
           Create New Trip
         </Typography>
         <Typography
           fontWeight={900}
           variant="body1"
-          sx={{ mt: 1, opacity: 0.9 }}
+          sx={{
+            mt: 1,
+            opacity: 0.9,
+            fontSize: { xs: '0.95rem', sm: '1rem' },
+          }}
         >
           Plan your perfect journey in just a few steps
         </Typography>
@@ -152,22 +173,46 @@ export default function NewTripWizard() {
       {/* Stepper */}
       <Paper
         elevation={0}
-        sx={{ p: 3, mb: 4, border: '1px solid', borderColor: 'divider' }}
+        sx={{
+          p: { xs: 2, md: 3 },
+          mb: 4,
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
       >
-        <Stepper activeStep={step} alternativeLabel>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+        {isSmall ? (
+          <Stack direction="row" gap={1} flexWrap="wrap">
+            {steps.map((label, idx) => (
+              <Chip
+                key={label}
+                label={label}
+                color={idx === step ? 'primary' : 'default'}
+                variant={idx === step ? 'filled' : 'outlined'}
+                size="small"
+                sx={{ flexGrow: 1, minWidth: '45%' }}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Stepper activeStep={step} alternativeLabel>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        )}
       </Paper>
 
       {/* Step 0: Basic Info */}
       {step === 0 && (
         <Paper
           elevation={0}
-          sx={{ p: 4, border: '1px solid', borderColor: 'divider' }}
+          sx={{
+            p: { xs: 2, md: 4 },
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
         >
           <Stack spacing={3}>
             <Box>
@@ -245,7 +290,11 @@ export default function NewTripWizard() {
 
             <Divider />
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              justifyContent="flex-end"
+            >
               <Button
                 variant="contained"
                 size="large"
@@ -260,6 +309,7 @@ export default function NewTripWizard() {
                 startIcon={
                   creating ? <CircularProgress size={20} /> : <Check />
                 }
+                fullWidth={isSmall}
               >
                 {creating
                   ? 'Creating Trip...'
@@ -610,7 +660,11 @@ function StepCard({
   return (
     <Paper
       elevation={0}
-      sx={{ p: 4, border: '1px solid', borderColor: 'divider' }}
+      sx={{
+        p: { xs: 2, md: 4 },
+        border: '1px solid',
+        borderColor: 'divider',
+      }}
     >
       <Box mb={3}>
         <Typography variant="h5" fontWeight={600} gutterBottom>
@@ -637,8 +691,20 @@ function WizardNav({
   nextDisabled?: boolean;
 }) {
   return (
-    <Stack direction="row" spacing={2} justifyContent="flex-end" mt={3}>
-      <Button onClick={onBack} variant="outlined" startIcon={<ArrowBack />}>
+    <Stack
+      direction={{ xs: 'column-reverse', sm: 'row' }}
+      spacing={2}
+      justifyContent="flex-end"
+      mt={3}
+      alignItems={{ xs: 'stretch', sm: 'center' }}
+    >
+      <Button
+        onClick={onBack}
+        variant="outlined"
+        startIcon={<ArrowBack />}
+        fullWidth
+        sx={{ width: { xs: '100%', sm: 'auto' } }}
+      >
         Back
       </Button>
       <Button
@@ -646,6 +712,7 @@ function WizardNav({
         disabled={!!nextDisabled}
         variant="contained"
         endIcon={<ArrowForward />}
+        sx={{ width: { xs: '100%', sm: 'auto' } }}
       >
         Next
       </Button>

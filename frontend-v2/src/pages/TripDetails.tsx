@@ -873,7 +873,8 @@ export default function TripDetails() {
         elevation={0}
         sx={{
           width: '100%',
-          py: 4,
+          py: { xs: 3, md: 4 },
+          px: { xs: 2, md: 4, lg: 6 },
           mb: 4,
           bgcolor: 'transparent',
           color: 'primary.main',
@@ -885,8 +886,10 @@ export default function TripDetails() {
         <Stack
           direction="row"
           justifyContent="space-between"
-          alignItems="flex-start"
+          alignItems="center"
+          spacing={{ xs: 1, sm: 2 }}
           mb={2}
+          flexWrap="wrap"
         >
           <Button
             component={Link}
@@ -895,11 +898,26 @@ export default function TripDetails() {
             sx={{
               color: 'primary.main',
               '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+              minWidth: { xs: 'auto', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              '& .MuiButton-startIcon': {
+                margin: { xs: 0, sm: '0 8px 0 0' },
+              },
             }}
           >
-            Back to Trips
+            <Box
+              component="span"
+              sx={{ display: { xs: 'none', sm: 'inline' } }}
+            >
+              Back to Trips
+            </Box>
           </Button>
-          <Stack direction="row" spacing={1}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+          >
             {isShared && (
               <Chip
                 icon={<VisibilityIcon />}
@@ -908,6 +926,9 @@ export default function TripDetails() {
                   bgcolor: 'rgba(255,255,255,0.2)',
                   color: 'primary.main',
                   fontWeight: 600,
+                  '& .MuiChip-label': {
+                    display: { xs: 'none', sm: 'inline' },
+                  },
                 }}
               />
             )}
@@ -923,10 +944,20 @@ export default function TripDetails() {
                       bgcolor: 'rgba(255,255,255,0.2)',
                       borderColor: 'rgba(255,255,255,0.8)',
                     },
+                    minWidth: { xs: 'auto', sm: 'auto' },
+                    px: { xs: 1, sm: 2 },
+                    '& .MuiButton-startIcon': {
+                      margin: { xs: 0, sm: '0 8px 0 0' },
+                    },
                   }}
                   variant="outlined"
                 >
-                  Share
+                  <Box
+                    component="span"
+                    sx={{ display: { xs: 'none', sm: 'inline' } }}
+                  >
+                    Share
+                  </Box>
                 </Button>
                 <Button
                   startIcon={<DirectionsCar />}
@@ -938,10 +969,20 @@ export default function TripDetails() {
                       bgcolor: 'rgba(255,255,255,0.2)',
                       borderColor: 'rgba(255,255,255,0.8)',
                     },
+                    minWidth: { xs: 'auto', sm: 'auto' },
+                    px: { xs: 1, sm: 2 },
+                    '& .MuiButton-startIcon': {
+                      margin: { xs: 0, sm: '0 8px 0 0' },
+                    },
                   }}
                   variant="outlined"
                 >
-                  Generate Ride
+                  <Box
+                    component="span"
+                    sx={{ display: { xs: 'none', sm: 'inline' } }}
+                  >
+                    Generate Ride
+                  </Box>
                 </Button>
                 <Button
                   startIcon={<EditIcon />}
@@ -953,10 +994,20 @@ export default function TripDetails() {
                       bgcolor: 'rgba(255,255,255,0.2)',
                       borderColor: 'rgba(255,255,255,0.8)',
                     },
+                    minWidth: { xs: 'auto', sm: 'auto' },
+                    px: { xs: 1, sm: 2 },
+                    '& .MuiButton-startIcon': {
+                      margin: { xs: 0, sm: '0 8px 0 0' },
+                    },
                   }}
                   variant="outlined"
                 >
-                  Edit Trip
+                  <Box
+                    component="span"
+                    sx={{ display: { xs: 'none', sm: 'inline' } }}
+                  >
+                    Edit Trip
+                  </Box>
                 </Button>
                 <Button
                   startIcon={<DeleteIcon />}
@@ -968,25 +1019,45 @@ export default function TripDetails() {
                       bgcolor: 'rgba(255,0,0,0.2)',
                       borderColor: 'rgba(255,255,255,0.8)',
                     },
+                    minWidth: { xs: 'auto', sm: 'auto' },
+                    px: { xs: 1, sm: 2 },
+                    '& .MuiButton-startIcon': {
+                      margin: { xs: 0, sm: '0 8px 0 0' },
+                    },
                   }}
                   variant="outlined"
                 >
-                  Delete Trip
+                  <Box
+                    component="span"
+                    sx={{ display: { xs: 'none', sm: 'inline' } }}
+                  >
+                    Delete Trip
+                  </Box>
                 </Button>
               </>
             )}
           </Stack>
         </Stack>
-        <Stack direction="row" spacing={10} alignItems="end" flexWrap="wrap">
+        <Stack
+          direction={{ xs: 'column', lg: 'row' }}
+          spacing={{ xs: 2, md: 6, lg: 10 }}
+          alignItems={{ xs: 'flex-start', lg: 'flex-end' }}
+          flexWrap="wrap"
+        >
           <Stack
             direction="column"
             spacing={2}
             alignItems="start"
-            pl={10}
-            pb={2}
+            pl={{ xs: 0, md: 4, lg: 10 }}
+            pb={{ xs: 0, lg: 2 }}
             width="fit-content"
           >
-            <Typography variant="h3" fontWeight={900} gutterBottom>
+            <Typography
+              variant="h3"
+              fontWeight={900}
+              gutterBottom
+              sx={{ fontSize: { xs: '2rem', md: '2.75rem' } }}
+            >
               {trip.name}
             </Typography>
 
@@ -1031,10 +1102,11 @@ export default function TripDetails() {
             src={'/videos/idle-animation.apng'}
             alt="Animation"
             sx={{
-              width: 120,
+              width: { xs: 160, md: 220 },
               maxWidth: 400,
               height: 'auto',
               objectFit: 'contain',
+              alignSelf: { xs: 'center', lg: 'flex-end' },
             }}
             style={{
               marginBottom: '-10px',
@@ -1071,12 +1143,12 @@ export default function TripDetails() {
         <Box
           sx={{
             width: '100%',
-            height: 100,
+            minHeight: 100,
             color: 'white',
             display: 'flex',
-            alignItems: 'start',
-            padding: 3,
-            px: 10,
+            alignItems: 'flex-start',
+            padding: { xs: 2, md: 3 },
+            px: { xs: 2, md: 6, lg: 10 },
             borderRadius: 2,
             background:
               'linear-gradient(180deg, var(--color-primary) 60%, rgba(0, 157, 133, 0) 100%)',
@@ -1084,7 +1156,11 @@ export default function TripDetails() {
           aria-hidden
         >
           {/* Trip Summary Stats */}
-          <Stack direction="row" spacing={4} flexWrap="wrap">
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 1.5, md: 4 }}
+            flexWrap="wrap"
+          >
             {trip.flights?.length > 0 && (
               <Stack direction="row" spacing={1} alignItems="center">
                 <FlightIcon />
@@ -1127,22 +1203,32 @@ export default function TripDetails() {
 
       {/* Action Bar */}
       <Stack
-        direction="row"
+        direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
-        alignItems="center"
+        alignItems={{ xs: 'stretch', md: 'center' }}
         mb={3}
-        flexWrap="wrap"
         gap={2}
       >
-        <AddItemModalLauncher trip={trip} onUpdated={setTrip} />
+        <Box sx={{ width: { xs: '100%', md: 'auto' } }}>
+          <AddItemModalLauncher trip={trip} onUpdated={setTrip} />
+        </Box>
 
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: 'column', lg: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'stretch', lg: 'center' }}
+        >
           {/* View Mode Toggle */}
           <Paper
             elevation={0}
-            sx={{ border: '1px solid', borderColor: 'divider' }}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              overflowX: 'auto',
+              display: 'flex',
+            }}
           >
-            <Stack direction="row">
+            <Stack direction="row" sx={{ minWidth: { xs: 480, sm: 'auto' } }}>
               {isOwner && (
                 <Button
                   size="small"
@@ -1246,12 +1332,13 @@ export default function TripDetails() {
             <Paper
               elevation={0}
               sx={{
-                px: 3,
-                py: 1.5,
+                px: { xs: 2, md: 3 },
+                py: { xs: 1, md: 1.5 },
                 bgcolor: 'success.lighter',
                 border: '2px solid',
                 borderColor: 'success.main',
                 borderRadius: 2,
+                width: { xs: '100%', lg: 'auto' },
               }}
             >
               <Stack direction="row" spacing={2} alignItems="center">
@@ -5565,6 +5652,7 @@ function AddItemModalLauncher({
         startIcon={<Add />}
         onClick={() => setOpen(true)}
         size="large"
+        sx={{ width: { xs: '100%', sm: 'auto' } }}
       >
         Add Item
       </Button>
