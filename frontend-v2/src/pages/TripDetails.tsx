@@ -333,7 +333,26 @@ function TripMapView({ trip }: { trip: Trip }) {
   );
 }
 
+const useVideoSupport = () => {
+  const [srcLoka, setSrcLoka] = useState<string | null>();
+
+  useEffect(() => {
+    const video = document.createElement('video');
+    const supportsAlphaWebM =
+      video.canPlayType('video/webm; codecs="vp9.0"') &&
+      !/Safari/.test(navigator.userAgent);
+    setSrcLoka(
+      supportsAlphaWebM
+        ? '/videos/idle-animation.webm'
+        : '/videos/idle-animation.mov'
+    );
+  }, []);
+
+  return srcLoka;
+};
+
 export default function TripDetails() {
+  const lokaSrc = useVideoSupport();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1008,6 +1027,21 @@ export default function TripDetails() {
           </Stack>
 
           <Box
+            component="img"
+            src={'/videos/idle-animation.apng'}
+            alt="Animation"
+            sx={{
+              width: 120,
+              maxWidth: 400,
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+            style={{
+              marginBottom: '-10px',
+            }}
+          />
+
+          {/* <Box
             component="video"
             autoPlay
             loop
@@ -1023,8 +1057,15 @@ export default function TripDetails() {
               marginBottom: '-10px',
             }}
           >
-            <source src="/videos/idle-animation.webm" type="video/webm" />
-          </Box>
+            {lokaSrc && (
+              <source
+                src={lokaSrc}
+                type={
+                  lokaSrc.endsWith('.webm') ? 'video/webm' : 'video/quicktime'
+                }
+              />
+            )}
+          </Box> */}
         </Stack>
 
         <Box
