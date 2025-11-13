@@ -75,17 +75,29 @@ export default function Home() {
           sx={{
             background:
               'linear-gradient(135deg, --color-primary 0%, --color-primary 100%)',
-            py: 6,
-            px: 4,
+            py: { xs: 4, md: 6 },
+            px: { xs: 2, md: 4 },
           }}
         >
           <Container maxWidth="lg">
             <Stack spacing={3} alignItems="center" textAlign="center">
-              <TravelExplore sx={{ fontSize: 64, opacity: 0.9 }} />
-              <Typography variant="h3" component="h1" fontWeight={900}>
+              <TravelExplore sx={{ fontSize: { xs: 48, md: 64 }, opacity: 0.9 }} />
+              <Typography
+                variant="h3"
+                component="h1"
+                fontWeight={900}
+                sx={{ fontSize: { xs: '2.2rem', sm: '2.75rem', md: '3rem' } }}
+              >
                 Plan Your Perfect Trip
               </Typography>
-              <Typography variant="h6" sx={{ opacity: 0.95, maxWidth: 600 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  opacity: 0.95,
+                  maxWidth: 600,
+                  fontSize: { xs: '1rem', sm: '1.1rem' },
+                }}
+              >
                 Organize flights, hotels, attractions, and transportation all in
                 one place
               </Typography>
@@ -98,9 +110,9 @@ export default function Home() {
                   bgcolor: 'white',
                   color: 'primary.main',
                   mt: 2,
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '1.1rem',
+                  px: { xs: 3, sm: 4 },
+                  py: { xs: 1.25, sm: 1.5 },
+                  fontSize: { xs: '1rem', sm: '1.1rem' },
                   fontWeight: 700,
                   '&:hover': {
                     bgcolor: 'grey.100',
@@ -108,6 +120,7 @@ export default function Home() {
                     boxShadow: 4,
                   },
                   transition: 'all 0.3s ease',
+                  width: { xs: '100%', sm: 'auto' },
                 }}
               >
                 Create New Trip
@@ -127,9 +140,10 @@ export default function Home() {
 
       {/* Owned Trips Section Header */}
       <Stack
-        direction="row"
+        direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
-        alignItems="center"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
         mb={3}
       >
         <Typography variant="h5" component="h2" fontWeight={700}>
@@ -322,12 +336,19 @@ export default function Home() {
       {sharedTrips.length > 0 && (
         <Box sx={{ mt: 6 }}>
           <Stack
-            direction="row"
+            direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
-            alignItems="center"
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            spacing={2}
             mb={3}
           >
-            <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              display="flex"
+              alignItems="center"
+              gap={2}
+              flexWrap="wrap"
+              width="100%"
+            >
               <Typography variant="h5" component="h2" fontWeight={600}>
                 Shared with You
               </Typography>
