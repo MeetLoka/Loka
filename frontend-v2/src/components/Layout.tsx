@@ -11,8 +11,16 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  useMediaQuery,
+  Divider,
 } from '@mui/material';
-import { Flight, Dashboard, Logout } from '@mui/icons-material';
+import {
+  Flight,
+  Dashboard,
+  Logout,
+  Menu as MenuIcon,
+} from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import CloudsBackground from './CloudsBackground';
@@ -22,6 +30,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [navMenuEl, setNavMenuEl] = useState<null | HTMLElement>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -29,6 +40,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleNavMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNavMenuEl(event.currentTarget);
+  };
+
+  const handleNavMenuClose = () => {
+    setNavMenuEl(null);
+  };
+
+  const goTo = (path: string) => {
+    navigate(path);
+    handleNavMenuClose();
   };
 
   const handleLogout = () => {
@@ -52,7 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         elevation={0}
         sx={{ bgcolor: 'common.white', color: 'text.primary' }}
       >
-        <Toolbar>
+        <Toolbar sx={{ gap: { xs: 1, sm: 2 } }}>
           <Typography
             variant="h6"
             component={Link}
@@ -74,47 +98,84 @@ export function Layout({ children }: { children: React.ReactNode }) {
             />
             Meet Loka
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              component={NavLink}
-              to="/"
-              startIcon={<Dashboard />}
-              sx={({ palette }) => ({
-                color: 'text.secondary',
-                '&.active': {
-                  color: 'primary.main',
-                  bgcolor: 'primary.50',
-                  fontWeight: 600,
-                },
-              })}
-            >
-              Dashboard
-            </Button>
-            <Button
-              component={NavLink}
-              to="/trip/new"
-              startIcon={<Flight />}
-              sx={({ palette }) => ({
-                color: 'text.secondary',
-                '&.active': {
-                  color: 'primary.main',
-                  bgcolor: 'primary.50',
-                  fontWeight: 700,
-                },
-              })}
-            >
-              New Trip
-            </Button>
-          </Box>
+          {isMobile ? (
+            <>
+              <IconButton
+                edge="start"
+                onClick={handleNavMenuOpen}
+                aria-label="Open navigation"
+                sx={{ ml: 'auto' }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Menu
+                anchorEl={navMenuEl}
+                open={Boolean(navMenuEl)}
+                onClose={handleNavMenuClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                <MenuItem onClick={() => goTo('/')}>
+                  <Dashboard fontSize="small" sx={{ mr: 1 }} />
+                  Dashboard
+                </MenuItem>
+                <MenuItem onClick={() => goTo('/trip/new')}>
+                  <Flight fontSize="small" sx={{ mr: 1 }} />
+                  New Trip
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                component={NavLink}
+                to="/"
+                startIcon={<Dashboard />}
+                sx={{
+                  color: 'text.secondary',
+                  '&.active': {
+                    color: 'primary.main',
+                    bgcolor: 'primary.50',
+                    fontWeight: 600,
+                  },
+                }}
+              >
+                Dashboard
+              </Button>
+              <Button
+                component={NavLink}
+                to="/trip/new"
+                startIcon={<Flight />}
+                sx={{
+                  color: 'text.secondary',
+                  '&.active': {
+                    color: 'primary.main',
+                    bgcolor: 'primary.50',
+                    fontWeight: 700,
+                  },
+                }}
+              >
+                New Trip
+              </Button>
+            </Box>
+          )}
           <Box
-            sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}
+            sx={{
+              ml: isMobile ? 0 : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              flexShrink: 0,
+            }}
           >
             <Chip label="v2" size="small" variant="outlined" color="primary" />
             {user && (
               <>
-                <Typography variant="body2" color="text.secondary">
-                  {user.name}
-                </Typography>
+                {!isMobile && (
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {user.name}
+                  </Typography>
+                )}
                 <IconButton onClick={handleMenuOpen} size="small">
                   <Avatar
                     src={user.picture}
@@ -135,6 +196,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     horizontal: 'right',
                   }}
                 >
+                  {isMobile && (
+                    <>
+                      <MenuItem disabled>
+                        <Typography variant="body2" color="text.secondary">
+                          {user.name}
+                        </Typography>
+                      </MenuItem>
+                      <Divider sx={{ my: 0.5 }} />
+                    </>
+                  )}
                   <MenuItem onClick={handleLogout}>
                     <Logout sx={{ mr: 1 }} fontSize="small" />
                     Logout
@@ -150,9 +221,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         component="main"
         sx={{
           flexGrow: 1,
-          py: 4,
+          py: { xs: 2, md: 4 },
           display: 'flex',
           flexDirection: 'column',
+          px: { xs: 2, sm: 3, md: 4 },
         }}
       >
         {children}
