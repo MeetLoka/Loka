@@ -44,7 +44,11 @@ import {
   ShoppingCart as ShoppingIcon,
   MoreHoriz as OtherIcon,
   AccountBalance as BalanceIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type {
   Expense,
   ExpenseCategory,
@@ -546,25 +550,204 @@ export default function TripExpenses({
     return 0;
   };
 
+  // Export to Excel
+  const exportToExcel = () => {
+    const workbook = XLSX.utils.book_new();
+
+    // Summary sheet
+    const summaryData = [
+      ['Trip Expense Report'],
+      ['Trip:', trip.name],
+      ['Generated:', new Date().toLocaleDateString()],
+      ['Currency:', TARGET_CURRENCY],
+      [],
+      ['Participant', 'Total Paid', 'Total Owed', 'Balance'],
+    ];
+
+    eurBalances.forEach((balance) => {
+      summaryData.push([
+        balance.name,
+        balance.totalPaid.toFixed(2),
+        balance.totalOwed.toFixed(2),
+        balance.balance.toFixed(2),
+      ]);
+    });
+
+    summaryData.push(
+      [],
+      ['Total Expenses:', eurTotalExpenses.toFixed(2), TARGET_CURRENCY]
+    );
+
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+    // Expenses sheet
+    const expensesData = [
+      [
+        'Date',
+        'Title',
+        'Category',
+        'Amount',
+        'Currency',
+        `Amount (${TARGET_CURRENCY})`,
+        'Paid By',
+        'Split Method',
+        'Participants',
+        'Linked Item',
+        'Notes',
+      ],
+    ];
+
+    expenses.forEach((expense) => {
+      const convertedAmount =
+        convertedAmounts.get(expense.id) || expense.amount;
+      const linkedItem = getLinkedItemDisplay(expense) || 'None';
+      const participants = expense.splits
+        .map((s) => getParticipantName(s.userId))
+        .join(', ');
+
+      expensesData.push([
+        expense.date,
+        expense.title,
+        CATEGORY_LABELS[expense.category],
+        expense.amount.toFixed(2),
+        expense.currency,
+        convertedAmount.toFixed(2),
+        getPayersDisplay(expense),
+        expense.splitMethod === 'equal'
+          ? 'Split Equally'
+          : expense.splitMethod === 'custom-amount'
+            ? 'Custom Amounts'
+            : 'Custom Percentages',
+        participants,
+        linkedItem,
+        expense.notes || '',
+      ]);
+    });
+
+    const expensesSheet = XLSX.utils.aoa_to_sheet(expensesData);
+    XLSX.utils.book_append_sheet(workbook, expensesSheet, 'Expenses');
+
+    // Download
+    XLSX.writeFile(workbook, `${trip.name}-expenses.xlsx`);
+  };
+
+  // Export to PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(18);
+    doc.text('Trip Expense Report', 14, 20);
+
+    doc.setFontSize(11);
+    doc.text(`Trip: ${trip.name}`, 14, 30);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 36);
+    doc.text(`Currency: ${TARGET_CURRENCY}`, 14, 42);
+
+    // Balance Summary Table
+    doc.setFontSize(14);
+    doc.text('Balance Summary', 14, 55);
+
+    autoTable(doc, {
+      startY: 60,
+      head: [['Participant', 'Total Paid', 'Total Owed', 'Balance']],
+      body: eurBalances.map((balance) => [
+        balance.name,
+        `${formatCurrency(balance.totalPaid, TARGET_CURRENCY)}`,
+        `${formatCurrency(balance.totalOwed, TARGET_CURRENCY)}`,
+        `${formatCurrency(balance.balance, TARGET_CURRENCY)}`,
+      ]),
+      foot: [
+        [
+          'Total',
+          `${formatCurrency(eurTotalExpenses, TARGET_CURRENCY)}`,
+          '',
+          '',
+        ],
+      ],
+    });
+
+    // Expenses Table
+    const finalY = (doc as any).lastAutoTable.finalY || 100;
+    doc.setFontSize(14);
+    doc.text('Expenses', 14, finalY + 15);
+
+    autoTable(doc, {
+      startY: finalY + 20,
+      head: [
+        [
+          'Date',
+          'Title',
+          'Category',
+          `Amount (${TARGET_CURRENCY})`,
+          'Paid By',
+          'Participants',
+        ],
+      ],
+      body: expenses.map((expense) => {
+        const convertedAmount =
+          convertedAmounts.get(expense.id) || expense.amount;
+        const participants = expense.splits
+          .map((s) => getParticipantName(s.userId))
+          .join(', ');
+
+        return [
+          new Date(expense.date).toLocaleDateString(),
+          expense.title,
+          CATEGORY_LABELS[expense.category],
+          formatCurrency(convertedAmount, TARGET_CURRENCY),
+          getPayersDisplay(expense),
+          participants,
+        ];
+      }),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [63, 81, 181] },
+    });
+
+    // Download
+    doc.save(`${trip.name}-expenses.pdf`);
+  };
+
   return (
     <Box>
-      {/* Header with Add Button */}
+      {/* Header with Add and Export Buttons */}
       <Stack
         direction="row"
         justifyContent="space-between"
         alignItems="center"
         mb={3}
+        flexWrap="wrap"
+        gap={2}
       >
         <Typography variant="h5">Expenses</Typography>
-        {permission === 'edit' && (
+        <Stack direction="row" spacing={1}>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setAddDialogOpen(true)}
+            variant="outlined"
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={exportToExcel}
           >
-            Add Expense
+            Excel
           </Button>
-        )}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={exportToPDF}
+          >
+            PDF
+          </Button>
+          {permission === 'edit' && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setAddDialogOpen(true)}
+            >
+              Add Expense
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       {/* Balance Summary Cards */}
