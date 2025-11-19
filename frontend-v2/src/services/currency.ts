@@ -1,10 +1,15 @@
 import axios from 'axios';
 
-const RAPIDAPI_KEY = 'ef20663225msh381cab3b853b899p19581djsn1be22373035b';
-const RAPIDAPI_HOST = 'currency-converter5.p.rapidapi.com';
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
+const RAPIDAPI_HOST =
+  import.meta.env.VITE_RAPIDAPI_HOST || 'currency-converter5.p.rapidapi.com';
+
+if (!RAPIDAPI_KEY) {
+  console.warn('VITE_RAPIDAPI_KEY is not set in environment variables');
+}
 
 const currencyApi = axios.create({
-  baseURL: 'https://currency-converter5.p.rapidapi.com',
+  baseURL: `https://${RAPIDAPI_HOST}`,
   headers: {
     'x-rapidapi-host': RAPIDAPI_HOST,
     'x-rapidapi-key': RAPIDAPI_KEY,
