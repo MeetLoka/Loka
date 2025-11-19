@@ -563,12 +563,9 @@ router.post("/:id/flights", async (req, res) => {
     !flight.departureDateTime ||
     !flight.arrivalDateTime
   ) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "flightNumber, departureDateTime and arrivalDateTime are required",
-      });
+    return res.status(400).json({
+      error: "flightNumber, departureDateTime and arrivalDateTime are required",
+    });
   }
   trip.flights.push(flight);
 
@@ -695,4 +692,365 @@ router.delete("/:id/:type/:idx", async (req, res) => {
   }
 
   res.json(updated);
+});
+
+// ============= EXPENSE MANAGEMENT ENDPOINTS =============
+
+// Add expense to trip
+router.post("/:id/expenses", async (req, res) => {
+  try {
+    const collection = getTripsCollection();
+    const { expense } = req.body;
+
+    // Check if trip exists and user has access
+    let trip;
+    if (collection) {
+      trip = await collection.findOne({ id: req.params.id });
+    } else {
+      trip = memoryStore.trips.findById(req.params.id);
+    }
+
+    if (!trip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    // Check permission
+    const isOwner = trip.userId === req.user.id;
+    const sharedUser = trip.sharedWith?.find((s) => s.userId === req.user.id);
+    const permission = sharedUser?.expensePermission || "disable";
+
+    if (!isOwner && permission !== "edit") {
+      return res.status(403).json({ error: "No permission to add expenses" });
+    }
+
+    // Add expense with metadata
+    const newExpense = {
+      ...expense,
+      id: `expense-${Date.now()}`,
+      createdBy: req.user.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    const expenses = trip.expenses || [];
+    expenses.push(newExpense);
+
+    let updated;
+    if (collection) {
+      await collection.updateOne(
+        { id: req.params.id },
+        { $set: { expenses, updatedAt: new Date().toISOString() } }
+      );
+      updated = await collection.findOne({ id: req.params.id });
+    } else {
+      updated = memoryStore.trips.update(req.params.id, { expenses });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error adding expense:", error);
+    res.status(500).json({ error: "Failed to add expense" });
+  }
+});
+
+// Update expense
+router.put("/:id/expenses/:expenseId", async (req, res) => {
+  try {
+    const collection = getTripsCollection();
+    const { expense } = req.body;
+
+    let trip;
+    if (collection) {
+      trip = await collection.findOne({ id: req.params.id });
+    } else {
+      trip = memoryStore.trips.findById(req.params.id);
+    }
+
+    if (!trip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    // Find the expense
+    const expenses = trip.expenses || [];
+    const expenseIndex = expenses.findIndex(
+      (e) => e.id === req.params.expenseId
+    );
+
+    if (expenseIndex === -1) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    // Check permission: owner or creator of expense
+    const isOwner = trip.userId === req.user.id;
+    const isCreator = expenses[expenseIndex].createdBy === req.user.id;
+
+    if (!isOwner && !isCreator) {
+      return res
+        .status(403)
+        .json({ error: "No permission to edit this expense" });
+    }
+
+    // Update expense
+    expenses[expenseIndex] = {
+      ...expenses[expenseIndex],
+      ...expense,
+      id: req.params.expenseId, // Keep original ID
+    };
+
+    let updated;
+    if (collection) {
+      await collection.updateOne(
+        { id: req.params.id },
+        { $set: { expenses, updatedAt: new Date().toISOString() } }
+      );
+      updated = await collection.findOne({ id: req.params.id });
+    } else {
+      updated = memoryStore.trips.update(req.params.id, { expenses });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating expense:", error);
+    res.status(500).json({ error: "Failed to update expense" });
+  }
+});
+
+// Delete expense
+router.delete("/:id/expenses/:expenseId", async (req, res) => {
+  try {
+    console.log("DELETE expense request:", {
+      tripId: req.params.id,
+      expenseId: req.params.expenseId,
+      userId: req.user?.id,
+      hasUser: !!req.user,
+    });
+
+    if (!req.user) {
+      console.log("No user found in request");
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const collection = getTripsCollection();
+
+    let trip;
+    if (collection) {
+      trip = await collection.findOne({ id: req.params.id });
+    } else {
+      trip = memoryStore.trips.findById(req.params.id);
+    }
+
+    if (!trip) {
+      console.log("Trip not found:", req.params.id);
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    const expenses = trip.expenses || [];
+    console.log("Found expenses:", expenses.length);
+    const expenseIndex = expenses.findIndex(
+      (e) => e.id === req.params.expenseId
+    );
+
+    if (expenseIndex === -1) {
+      console.log("Expense not found:", req.params.expenseId);
+      console.log(
+        "Available expense IDs:",
+        expenses.map((e) => e.id)
+      );
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    // Check permission
+    const isOwner = trip.userId === req.user.id;
+    const isCreator = expenses[expenseIndex].createdBy === req.user.id;
+
+    console.log("Permission check:", {
+      isOwner,
+      isCreator,
+      tripUserId: trip.userId,
+      reqUserId: req.user.id,
+      expenseCreatedBy: expenses[expenseIndex].createdBy,
+    });
+
+    if (!isOwner && !isCreator) {
+      return res
+        .status(403)
+        .json({ error: "No permission to delete this expense" });
+    }
+
+    expenses.splice(expenseIndex, 1);
+
+    let updated;
+    if (collection) {
+      await collection.updateOne(
+        { id: req.params.id },
+        { $set: { expenses, updatedAt: new Date().toISOString() } }
+      );
+      updated = await collection.findOne({ id: req.params.id });
+    } else {
+      updated = memoryStore.trips.update(req.params.id, { expenses });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error deleting expense:", error);
+    res.status(500).json({ error: "Failed to delete expense" });
+  }
+});
+
+// Update participant expense permission
+router.put("/:id/participants/:userId/permission", async (req, res) => {
+  try {
+    const collection = getTripsCollection();
+    const { permission } = req.body; // 'disable', 'view', or 'edit'
+
+    let trip;
+    if (collection) {
+      trip = await collection.findOne({ id: req.params.id });
+    } else {
+      trip = memoryStore.trips.findById(req.params.id);
+    }
+
+    if (!trip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    // Only owner can update permissions
+    if (trip.userId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "Only trip owner can update permissions" });
+    }
+
+    // Update shared user permission
+    const sharedWith = trip.sharedWith || [];
+    const userIndex = sharedWith.findIndex(
+      (s) => s.userId === req.params.userId
+    );
+
+    if (userIndex === -1) {
+      return res.status(404).json({ error: "User not found in shared list" });
+    }
+
+    sharedWith[userIndex].expensePermission = permission;
+
+    let updated;
+    if (collection) {
+      await collection.updateOne(
+        { id: req.params.id },
+        { $set: { sharedWith, updatedAt: new Date().toISOString() } }
+      );
+      updated = await collection.findOne({ id: req.params.id });
+    } else {
+      updated = memoryStore.trips.update(req.params.id, { sharedWith });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating permission:", error);
+    res.status(500).json({ error: "Failed to update permission" });
+  }
+});
+
+// Calculate balances
+router.get("/:id/expenses/balances", async (req, res) => {
+  try {
+    const collection = getTripsCollection();
+
+    let trip;
+    if (collection) {
+      trip = await collection.findOne({ id: req.params.id });
+    } else {
+      trip = memoryStore.trips.findById(req.params.id);
+    }
+
+    if (!trip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    // Check access
+    const isOwner = trip.userId === req.user.id;
+    const sharedUser = trip.sharedWith?.find((s) => s.userId === req.user.id);
+    const permission = sharedUser?.expensePermission || "disable";
+
+    if (!isOwner && permission === "disable") {
+      return res.status(403).json({ error: "No access to expenses" });
+    }
+
+    // Calculate balances
+    const expenses = trip.expenses || [];
+    const participants = {};
+
+    // Initialize participants (owner + shared users with expense access)
+    participants[trip.userId] = {
+      userId: trip.userId,
+      name: trip.userName || "Owner",
+      email: trip.userEmail || "",
+      totalPaid: 0,
+      totalOwed: 0,
+      balance: 0,
+    };
+
+    trip.sharedWith?.forEach((user) => {
+      if (user.expensePermission && user.expensePermission !== "disable") {
+        participants[user.userId] = {
+          userId: user.userId,
+          name: user.name,
+          email: user.email,
+          totalPaid: 0,
+          totalOwed: 0,
+          balance: 0,
+        };
+      }
+    });
+
+    // Calculate totals from expenses
+    expenses.forEach((expense) => {
+      // Add to payer's total paid (handle single or multiple payers)
+      if (typeof expense.paidBy === "string") {
+        // Single payer
+        if (participants[expense.paidBy]) {
+          participants[expense.paidBy].totalPaid += expense.amount;
+        }
+      } else if (Array.isArray(expense.paidBy)) {
+        // Multiple payers
+        expense.paidBy.forEach((payer) => {
+          if (participants[payer.userId]) {
+            participants[payer.userId].totalPaid += payer.amount;
+          }
+        });
+      }
+
+      // Calculate split amounts
+      const splitParticipants = expense.splits;
+      const participantCount = splitParticipants.length;
+
+      splitParticipants.forEach((split) => {
+        if (!participants[split.userId]) return;
+
+        let owedAmount = 0;
+
+        if (expense.splitMethod === "equal") {
+          owedAmount = expense.amount / participantCount;
+        } else if (expense.splitMethod === "custom-amount") {
+          owedAmount = split.amount || 0;
+        } else if (expense.splitMethod === "custom-percentage") {
+          owedAmount = (expense.amount * (split.percentage || 0)) / 100;
+        }
+
+        participants[split.userId].totalOwed += owedAmount;
+      });
+    });
+
+    // Calculate net balance for each participant
+    Object.values(participants).forEach((p) => {
+      p.balance = p.totalPaid - p.totalOwed;
+    });
+
+    res.json({
+      participants: Object.values(participants),
+      totalExpenses: expenses.reduce((sum, e) => sum + e.amount, 0),
+    });
+  } catch (error) {
+    console.error("Error calculating balances:", error);
+    res.status(500).json({ error: "Failed to calculate balances" });
+  }
 });

@@ -89,6 +89,48 @@ export async function deleteTrip(id: string): Promise<void> {
   await api.delete(`/trips/${id}`);
 }
 
+// ============= EXPENSE MANAGEMENT =============
+export async function addExpense(tripId: string, expense: any): Promise<Trip> {
+  const res = await api.post<Trip>(`/trips/${tripId}/expenses`, { expense });
+  return res.data;
+}
+
+export async function updateExpense(
+  tripId: string,
+  expenseId: string,
+  expense: any
+): Promise<Trip> {
+  const res = await api.put<Trip>(`/trips/${tripId}/expenses/${expenseId}`, {
+    expense,
+  });
+  return res.data;
+}
+
+export async function deleteExpense(
+  tripId: string,
+  expenseId: string
+): Promise<Trip> {
+  const res = await api.delete<Trip>(`/trips/${tripId}/expenses/${expenseId}`);
+  return res.data;
+}
+
+export async function updateParticipantPermission(
+  tripId: string,
+  userId: string,
+  permission: 'disable' | 'view' | 'edit'
+): Promise<Trip> {
+  const res = await api.put<Trip>(
+    `/trips/${tripId}/participants/${userId}/permission`,
+    { permission }
+  );
+  return res.data;
+}
+
+export async function getExpenseBalances(tripId: string): Promise<any> {
+  const res = await api.get(`/trips/${tripId}/expenses/balances`);
+  return res.data;
+}
+
 // Trip sub-resource mutations
 export async function addFlightToTrip(
   tripId: string,

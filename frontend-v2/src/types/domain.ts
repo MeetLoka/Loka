@@ -98,6 +98,60 @@ export interface SharedUser {
   email: string;
   name: string;
   sharedAt: string;
+  expensePermission?: 'disable' | 'view' | 'edit'; // Permission for expenses tab
+}
+
+export type ExpenseCategory =
+  | 'food'
+  | 'hotel'
+  | 'ride'
+  | 'activity'
+  | 'shopping'
+  | 'other';
+
+export type SplitMethod = 'equal' | 'custom-amount' | 'custom-percentage';
+
+export interface ExpenseSplit {
+  userId: string;
+  amount?: number; // For custom-amount split
+  percentage?: number; // For custom-percentage split
+}
+
+export interface PayerShare {
+  userId: string;
+  amount: number; // Amount this person paid
+}
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  currency: string;
+  paidBy: string | PayerShare[]; // Single userId OR array of multiple payers with amounts
+  splitMethod: SplitMethod;
+  splits: ExpenseSplit[]; // Participants who share this expense
+  date: string;
+  category: ExpenseCategory;
+  notes?: string;
+  linkedItemType?: 'flight' | 'hotel' | 'ride' | 'attraction'; // Link to itinerary item
+  linkedItemId?: string; // Index or ID of the linked item
+  createdBy: string; // userId who created the expense
+  createdAt: string;
+}
+
+export interface ParticipantBalance {
+  userId: string;
+  name: string;
+  email: string;
+  totalPaid: number;
+  totalOwed: number;
+  balance: number; // positive = owed to them, negative = they owe
+}
+
+export interface SimplifiedDebt {
+  from: string; // userId
+  to: string; // userId
+  amount: number;
 }
 
 export interface ChecklistItem {
@@ -130,10 +184,12 @@ export interface Trip {
   attractions: AttractionVisit[];
   checklist?: ChecklistCategory[]; // Legacy: owner's checklist (kept for backward compatibility)
   userChecklists?: UserChecklist[]; // New: per-user checklists for shared trips
+  expenses?: Expense[]; // Trip expenses for cost sharing
   createdAt?: string;
   updatedAt?: string;
   userId?: string;
   userEmail?: string;
+  userName?: string;
   sharedWith?: SharedUser[];
   isOwner?: boolean;
   isShared?: boolean;

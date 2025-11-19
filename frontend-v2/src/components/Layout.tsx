@@ -196,16 +196,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     horizontal: 'right',
                   }}
                 >
-                  {isMobile && (
-                    <>
-                      <MenuItem disabled>
-                        <Typography variant="body2" color="text.secondary">
-                          {user.name}
-                        </Typography>
-                      </MenuItem>
-                      <Divider sx={{ my: 0.5 }} />
-                    </>
-                  )}
+                  {isMobile && [
+                    <MenuItem key="user-info" disabled>
+                      <Typography variant="body2" color="text.secondary">
+                        {user.name}
+                      </Typography>
+                    </MenuItem>,
+                    <Divider key="divider" sx={{ my: 0.5 }} />,
+                  ]}
                   <MenuItem onClick={handleLogout}>
                     <Logout sx={{ mr: 1 }} fontSize="small" />
                     Logout

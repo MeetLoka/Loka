@@ -19,10 +19,21 @@ import {
   placesAutocomplete,
   placeDetails,
   calculateSmartCheckoutTime,
+  addExpense,
+  updateExpense,
+  deleteExpense,
+  getExpenseBalances,
 } from '../services/api';
-import type { Trip, ChecklistCategory, UserChecklist } from '../types/domain';
+import type {
+  Trip,
+  ChecklistCategory,
+  UserChecklist,
+  Expense,
+  ParticipantBalance,
+} from '../types/domain';
 import { groupTripByDay } from '../types/domain';
 import TripChecklist from '../components/TripChecklist';
+import TripExpenses from '../components/TripExpenses';
 import { useAuth } from '../context/AuthContext';
 import {
   AddFlightForm,
@@ -98,6 +109,7 @@ import {
   Visibility as VisibilityIcon,
   BarChart as GanttIcon,
   ChecklistRtl as ChecklistIcon,
+  AttachMoney as ExpensesIcon,
 } from '@mui/icons-material';
 
 // Helper function to get attraction type label
@@ -127,7 +139,13 @@ import ShareTripDialog from '../components/ShareTripDialog';
 import { format, parseISO } from 'date-fns';
 
 type FilterCategory = 'all' | 'flights' | 'hotels' | 'rides' | 'attractions';
-type ViewMode = 'list' | 'timeline' | 'map' | 'gantt' | 'checklist';
+type ViewMode =
+  | 'list'
+  | 'timeline'
+  | 'map'
+  | 'gantt'
+  | 'checklist'
+  | 'expenses';
 
 // Small embedded map component for ride routes
 function RideMapEmbed({ ride }: { ride: any }) {
@@ -360,6 +378,10 @@ export default function TripDetails() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [expenseBalances, setExpenseBalances] = useState<ParticipantBalance[]>(
+    []
+  );
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [expandedItem, setExpandedItem] = useState<{
     type: string;
     index: number;
@@ -529,6 +551,98 @@ export default function TripDetails() {
       setError(e.message);
     }
   };
+
+  // Expense handlers
+  const loadExpenseBalances = async () => {
+    if (!id) return;
+    try {
+      const data = await getExpenseBalances(id);
+      setExpenseBalances(data.participants || []);
+      setTotalExpenses(data.totalExpenses || 0);
+    } catch (e: any) {
+      console.error('Error loading balances:', e);
+      if (e.response?.status === 401) {
+        setError('Authentication required. Please log in again.');
+      } else if (e.response?.status === 403) {
+        setError('You do not have permission to view expenses.');
+      }
+    }
+  };
+
+  const handleAddExpense = async (
+    expense: Omit<Expense, 'id' | 'createdBy' | 'createdAt'>
+  ) => {
+    if (!id) return;
+    try {
+      const updated = await addExpense(id, expense);
+      setTrip(updated);
+      await loadExpenseBalances();
+      setError(null);
+    } catch (e: any) {
+      console.error('Error adding expense:', e);
+      if (e.response?.status === 401) {
+        setError('Authentication required. Please log in again.');
+      } else if (e.response?.status === 403) {
+        setError('You do not have permission to add expenses.');
+      } else {
+        setError(
+          e.response?.data?.error || e.message || 'Failed to add expense'
+        );
+      }
+    }
+  };
+
+  const handleUpdateExpense = async (
+    expenseId: string,
+    expense: Partial<Expense>
+  ) => {
+    if (!id) return;
+    try {
+      const updated = await updateExpense(id, expenseId, expense);
+      setTrip(updated);
+      await loadExpenseBalances();
+      setError(null);
+    } catch (e: any) {
+      console.error('Error updating expense:', e);
+      if (e.response?.status === 401) {
+        setError('Authentication required. Please log in again.');
+      } else if (e.response?.status === 403) {
+        setError('You do not have permission to edit this expense.');
+      } else {
+        setError(
+          e.response?.data?.error || e.message || 'Failed to update expense'
+        );
+      }
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!id) return;
+    try {
+      const updated = await deleteExpense(id, expenseId);
+      setTrip(updated);
+      await loadExpenseBalances();
+      setError(null);
+    } catch (e: any) {
+      console.error('Error deleting expense:', e);
+      if (e.response?.status === 401) {
+        setError('Authentication required. Please log in again.');
+      } else if (e.response?.status === 403) {
+        setError('You do not have permission to delete this expense.');
+      } else {
+        setError(
+          e.response?.data?.error || e.message || 'Failed to delete expense'
+        );
+      }
+    }
+  };
+
+  // Load balances when expenses change
+  useEffect(() => {
+    if (trip && viewMode === 'expenses') {
+      loadExpenseBalances();
+    }
+  }, [trip?.expenses, viewMode]);
 
   // Debounced autocomplete search for edit dialogs
   useEffect(() => {
@@ -1334,6 +1448,40 @@ export default function TripDetails() {
                 >
                   Checklist
                 </Button>
+                {/* Expenses button - visible based on permission */}
+                {(() => {
+                  const expensePermission = isOwner
+                    ? 'edit'
+                    : trip.sharedWith?.find((u) => u.userId === user?.id)
+                        ?.expensePermission || 'disable';
+
+                  if (expensePermission === 'disable') return null;
+
+                  return (
+                    <Button
+                      size="small"
+                      startIcon={<ExpensesIcon />}
+                      onClick={() => setViewMode('expenses')}
+                      sx={{
+                        borderRadius: 0,
+                        bgcolor:
+                          viewMode === 'expenses'
+                            ? 'primary.main'
+                            : 'transparent',
+                        color:
+                          viewMode === 'expenses' ? 'white' : 'text.primary',
+                        '&:hover': {
+                          bgcolor:
+                            viewMode === 'expenses'
+                              ? 'primary.dark'
+                              : 'action.hover',
+                        },
+                      }}
+                    >
+                      Expenses
+                    </Button>
+                  );
+                })()}
               </Stack>
             </Paper>
 
@@ -4552,6 +4700,29 @@ export default function TripDetails() {
             />
           </Box>
         )}
+
+        {/* Expenses View */}
+        {viewMode === 'expenses' &&
+          (() => {
+            const expensePermission = isOwner
+              ? 'edit'
+              : ((trip.sharedWith?.find((u) => u.userId === user?.id)
+                  ?.expensePermission || 'disable') as 'view' | 'edit');
+
+            return (
+              <Box sx={{ mt: 2 }}>
+                <TripExpenses
+                  trip={trip}
+                  onAddExpense={handleAddExpense}
+                  onUpdateExpense={handleUpdateExpense}
+                  onDeleteExpense={handleDeleteExpense}
+                  balances={expenseBalances}
+                  totalExpenses={totalExpenses}
+                  permission={expensePermission}
+                />
+              </Box>
+            );
+          })()}
 
         {/* Floating Action Button for Create Ride from Selection */}
         {selectedItems.length === 2 && (
