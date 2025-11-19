@@ -253,6 +253,33 @@ export default function TripExpenses({
     );
   }, [convertedAmounts]);
 
+  // Calculate category totals in EUR
+  const categoryTotals = useMemo(() => {
+    const totals: Record<ExpenseCategory, number> = {
+      food: 0,
+      hotel: 0,
+      ride: 0,
+      activity: 0,
+      shopping: 0,
+      other: 0,
+    };
+
+    expenses.forEach((expense) => {
+      const convertedAmount =
+        convertedAmounts.get(expense.id) || expense.amount;
+      totals[expense.category] += convertedAmount;
+    });
+
+    // Filter out categories with zero spending and sort by amount
+    return Object.entries(totals)
+      .filter(([_, amount]) => amount > 0)
+      .sort(([, a], [, b]) => b - a)
+      .map(([category, amount]) => ({
+        category: category as ExpenseCategory,
+        amount,
+      }));
+  }, [expenses, convertedAmounts]);
+
   // Convert total to selected display currency
   useEffect(() => {
     const convertTotal = async () => {
@@ -578,6 +605,24 @@ export default function TripExpenses({
       ['Total Expenses:', eurTotalExpenses.toFixed(2), TARGET_CURRENCY]
     );
 
+    // Add category breakdown
+    if (categoryTotals.length > 0) {
+      summaryData.push(
+        [],
+        ['Spending by Category'],
+        ['Category', 'Amount', '% of Total']
+      );
+
+      categoryTotals.forEach(({ category, amount }) => {
+        const percentage = ((amount / eurTotalExpenses) * 100).toFixed(1);
+        summaryData.push([
+          CATEGORY_LABELS[category],
+          amount.toFixed(2),
+          `${percentage}%`,
+        ]);
+      });
+    }
+
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
@@ -668,13 +713,35 @@ export default function TripExpenses({
       ],
     });
 
+    // Category Breakdown Table
+    let currentY = (doc as any).lastAutoTable.finalY || 100;
+    if (categoryTotals.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Spending by Category', 14, currentY + 15);
+
+      autoTable(doc, {
+        startY: currentY + 20,
+        head: [['Category', `Amount (${TARGET_CURRENCY})`, '% of Total']],
+        body: categoryTotals.map(({ category, amount }) => {
+          const percentage = ((amount / eurTotalExpenses) * 100).toFixed(1);
+          return [
+            CATEGORY_LABELS[category],
+            formatCurrency(amount, TARGET_CURRENCY),
+            `${percentage}%`,
+          ];
+        }),
+        headStyles: { fillColor: [63, 81, 181] },
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY || currentY + 80;
+    }
+
     // Expenses Table
-    const finalY = (doc as any).lastAutoTable.finalY || 100;
     doc.setFontSize(14);
-    doc.text('Expenses', 14, finalY + 15);
+    doc.text('Expenses', 14, currentY + 15);
 
     autoTable(doc, {
-      startY: finalY + 20,
+      startY: currentY + 20,
       head: [
         [
           'Date',
@@ -839,6 +906,54 @@ export default function TripExpenses({
           </Card>
         </Grid>
       </Grid>
+
+      {/* Category Breakdown */}
+      {categoryTotals.length > 0 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" mb={2}>
+              Spending by Category
+            </Typography>
+            <Grid container spacing={2}>
+              {categoryTotals.map(({ category, amount }) => {
+                const CategoryIcon = CATEGORY_ICONS[category];
+                const percentage = (amount / eurTotalExpenses) * 100;
+
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={category}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 2,
+                          bgcolor: 'primary.light',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <CategoryIcon sx={{ color: 'primary.main' }} />
+                      </Box>
+                      <Stack flex={1}>
+                        <Typography variant="subtitle2">
+                          {CATEGORY_LABELS[category]}
+                        </Typography>
+                        <Typography variant="h6" color="primary">
+                          {formatCurrency(amount, TARGET_CURRENCY)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {percentage.toFixed(1)}% of total
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Stack direction="row" spacing={2} mb={2}>
