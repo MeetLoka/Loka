@@ -374,7 +374,7 @@ export function AddFlightForm({
                   <SearchAutocomplete
                     label="Origin Airport"
                     placeholder="e.g. TLV, JFK, LHR"
-                    minChars={2}
+                    minChars={1}
                     value={origin}
                     fetchOptions={async (q: string) => {
                       const result = await searchAirports(q);
@@ -393,7 +393,7 @@ export function AddFlightForm({
                   <SearchAutocomplete
                     label="Destination Airport"
                     placeholder="e.g. DXB, LAX, CDG"
-                    minChars={2}
+                    minChars={1}
                     value={destination}
                     fetchOptions={async (q: string) => {
                       const result = await searchAirports(q);
