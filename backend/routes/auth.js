@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await collection.findOne({ email })
+    const existingUser = await collection.findOne({ email: email.toLowerCase() })
     if (existingUser) {
       return res.status(400).json({ error: 'Email already registered' })
     }
@@ -38,7 +38,7 @@ router.post('/register', async (req, res) => {
     // Create user
     const newUser = {
       id: `user-${Date.now()}`,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       name,
       picture: null,
@@ -84,7 +84,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user
-    const user = await collection.findOne({ email })
+    const user = await collection.findOne({ email: email.toLowerCase() })
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
