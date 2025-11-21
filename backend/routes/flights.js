@@ -348,21 +348,22 @@ router.get('/search-route', async (req, res) => {
   }
 })
 
+
 // Airport search/autocomplete
 router.get('/airports/search', async (req, res) => {
-  const { query } = req.query
+  const { query } = req.query;
   
   try {
-    if (!query || query.trim().length < 2) {
+    if (!query || query.trim().length < 1) {
       return res.status(400).json({ 
-        error: 'Search query is required and must be at least 2 characters' 
+        error: 'Search query is required' 
       })
     }
 
     const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
     
-    if (!RAPIDAPI_KEY) {
-      // Return common airports if API key not configured
+    // If query is less than 3 characters or no API key, return filtered common airports
+    if (!RAPIDAPI_KEY || query.trim().length < 3) {
       const commonAirports = [
         { code: 'TLV', name: 'Ben Gurion Airport', city: 'Tel Aviv', country: 'IL', location: { lat: 32.01, lng: 34.87 } },
         { code: 'JFK', name: 'John F Kennedy Intl', city: 'New York', country: 'US', location: { lat: 40.64, lng: -73.78 } },
@@ -370,6 +371,10 @@ router.get('/airports/search', async (req, res) => {
         { code: 'DXB', name: 'Dubai Intl', city: 'Dubai', country: 'AE', location: { lat: 25.25, lng: 55.36 } },
         { code: 'CDG', name: 'Charles de Gaulle', city: 'Paris', country: 'FR', location: { lat: 49.01, lng: 2.55 } },
         { code: 'LAX', name: 'Los Angeles Intl', city: 'Los Angeles', country: 'US', location: { lat: 33.94, lng: -118.41 } },
+        { code: 'AMS', name: 'Amsterdam Schiphol', city: 'Amsterdam', country: 'NL', location: { lat: 52.31, lng: 4.77 } },
+        { code: 'FRA', name: 'Frankfurt Airport', city: 'Frankfurt', country: 'DE', location: { lat: 50.05, lng: 8.57 } },
+        { code: 'SIN', name: 'Singapore Changi', city: 'Singapore', country: 'SG', location: { lat: 1.36, lng: 103.99 } },
+        { code: 'HND', name: 'Tokyo Haneda', city: 'Tokyo', country: 'JP', location: { lat: 35.55, lng: 139.78 } },
       ].filter(a => 
         a.code.toLowerCase().includes(query.toLowerCase()) ||
         a.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -407,10 +412,10 @@ router.get('/airports/search', async (req, res) => {
     res.json({ airports })
   } catch (error) {
     console.error('Airport search error:', error.message)
+    console.error('Error details:', error.response?.data || error)
     
     // If rate limited or API error, fallback to common airports
     if (error.response?.status === 429 || error.response?.status >= 500) {
-      console.log('Falling back to common airports due to API issues')
       const commonAirports = [
         { code: 'TLV', name: 'Ben Gurion Airport', city: 'Tel Aviv', country: 'IL', location: { lat: 32.01, lng: 34.87 } },
         { code: 'JFK', name: 'John F Kennedy Intl', city: 'New York', country: 'US', location: { lat: 40.64, lng: -73.78 } },
